@@ -1,0 +1,22 @@
+{
+  "name": "ochestrive",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GoBeromsu/Ochestrive.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/GoBeromsu/Ochestrive/issues"
+  },
+  "homepage": "https://github.com/GoBeromsu/Ochestrive#readme",
+  "dependencies": {
+    "express": "^4.18.1"
+  }
+}
