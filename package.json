@@ -1,0 +1,14 @@
+{
+  "name": "ochestrive",
+  "version": "1.0.0",
+  "description": "Orchestrive using WebRTC and Websockets",
+  "author": "Starlight258",
+  "license": "ISC",
+  "devDependencies": {
+    "@babel/cli": "^7.18.6",
+    "@babel/core": "^7.18.6",
+    "@babel/node": "^7.18.6",
+    "@babel/preset-env": "^7.18.6",
+    "nodemon": "^2.0.18"
+  }
+}
