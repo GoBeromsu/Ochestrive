@@ -9,6 +9,17 @@ html(lang="en")
     body 
         header
             h1 Orchestrive
-        main 
-            h2 This is the main page
+        main
+            h2 This is the main page 
+            ul
+            form#nick 
+                //- 닉네임 저장 창 
+                input(type="text",placeholder="choose a nickname", required)
+                button Save
+            ul
+            form#message 
+                //- 메세지 창 
+                input(type="text",placeholder="write a message", required)
+                button Send
+            
         script(src="/public/js/app.js") 
