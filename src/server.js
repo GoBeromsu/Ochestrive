@@ -12,11 +12,11 @@ app.set("views", __dirname + "/views");
 
 // 정적 경로 설정 -> 유저에게 파일 공유
 // 유저가 Public 폴더로 이동하면 그 파일을 볼 수 있다
-app.use("public", express.static(__dirname + "public"));
+app.use("/public", express.static(__dirname + "/public"));
 //home.pug를 렌더링 해주는 renderer
-app.get("/", (req, res) => res.render("home"));
+app.get("/", (_, res) => res.render("home"));
 // 유저가 어떤 url로 이동하던 다시 home으로 redirect 해주는 것임
-app.get("/*", (req, res) => res.redirect("/"));
+app.get("/*", (_, res) => res.redirect("/"));
 const handleListen = () => console.log(`Listening on http://localhost:3000`);
 // app.listen(3000, handleListen);
 
@@ -27,8 +27,10 @@ const server = http.createServer(app);
 // 이렇게 하면 http 서버와 socket 서버를 동시에 운영할 수 있다
 // 두 서버를 같은 포트에서 사용하길 원하기 때문이다
 const wss = new WebSocket.Server({ server });
-
+function handleConnection(socket) {
+  console.log(socket);
+}
+wss.on("connection", handleConnection);
 // 내 http 서버에 접근 할 수 있고 http 서버 위에 Web Socket 서버를 만들 수 있음
 // 물론 꼭 이렇게 할 필요가 없긴하다
-server.listen(3000,handleListen);
-
+server.listen(3000, handleListen);
