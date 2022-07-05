@@ -11,13 +11,19 @@ html(lang="en")
             h1 Orchestrive
         main
             div#welcome
-                form    
+                form#nickname 
+                    input(placeholder="nickname" type="text", required)
+                    button Save
+                h4 Open Rooms:
+                ul
+                form#roomName    
                     input(placeholder="room name", required, type="text")
                     button Enter Room
+
             div#room 
                 h3 
                 ul
-                form 
+                form#msg 
                     input(placeholder="message" type="text", required)
                     button Send
 
