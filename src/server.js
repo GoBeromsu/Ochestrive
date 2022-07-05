@@ -30,7 +30,18 @@ const wss = new WebSocket.Server({ server });
 function handleConnection(socket) {
   console.log(socket);
 }
-wss.on("connection", handleConnection);
+wss.on("connection", (socket) => {
+  //서버가 아닌 직접적으로 소켓에 접근 할 수 있다
+
+  console.log("Connected Browser");
+  socket.on("message", (message) => {
+    console.log(message);
+  });
+  socket.on("close", () => {
+    console.log("Disconnected from the Browser");
+  });
+  socket.send("heelo!"); //Connection이 생기면 바로 SOCKET에 메세지를 보낸다
+});
 // 내 http 서버에 접근 할 수 있고 http 서버 위에 Web Socket 서버를 만들 수 있음
 // 물론 꼭 이렇게 할 필요가 없긴하다
 server.listen(3000, handleListen);
