@@ -1,0 +1,4 @@
+//server.js에 대해 babel-node 명령문을 실행시키는 행위
+{
+    "presets": ["@babel/preset-env"]
+}
