@@ -1,20 +1,45 @@
-// front의 객체와 아ㅓ래와 같은 형식으로 연결되는거임
-// listener에 들어가는 것은 지정되어 있음
-// btn.addEventListener("click", fn);
-const socket = new WebSocket(`ws://${window.location.host}`);
-socket.addEventListener("open", () => {
-  console.log("Connected to Server");
-});
+const socket = io();
 
-socket.addEventListener("message", (message) => {
-  //messsage 객체로 데이터를 받아서 접근할 수 있음!
-  console.log("New message : ", message.data, "from the Server");
-});
+const myFace = document.getElementById("myFace");
+const muteBtn = document.getElementById("mute");
+const cameraBtn = document.getElementById("camera");
 
-socket.addEventListener("close", () => {
-  console.log("DisConnected from Server X");
-});
+let myStream;
+let muted = false;
+let cameraOff = false;
 
-setTimeout(() => {
-  socket.send("hello form the browser!");
-}, 3000);
+async function getMedia() {
+  try {
+    myStream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+      video: true,
+    });
+    myFace.srcObject = myStream;
+  } catch (e) {
+    console.log(e);
+  }
+}
+
+getMedia();
+
+function handleMuteClick() {
+  if (!muted) {
+    muteBtn.innerText = "Unmute";
+    muted = true;
+  } else {
+    muteBtn.innerText = "Mute";
+    muted = false;
+  }
+}
+function handleCameraClick() {
+  if (cameraOff) {
+    cameraBtn.innerText = "Turn Camera Off";
+    cameraOff = false;
+  } else {
+    cameraBtn.innerText = "Turn Camera On";
+    cameraOff = true;
+  }
+}
+
+muteBtn.addEventListener("click", handleMuteClick);
+cameraBtn.addEventListener("click", handleCameraClick);
