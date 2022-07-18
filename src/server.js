@@ -14,15 +14,18 @@ const wsServer = SocketIO(httpServer);
 
 wsServer.on("connection", (socket) => {
   //연결된 포트로 데이터가 들어오는지 지켜보는거야
-  // 소켓을 통해 방의 이름과 start Media 함수가 들어온다
-  socket.on("join_room", (roomName, done) => {
+  // 소켓을 통해 방의 이름이 들어온다
+  socket.on("join_room", (roomName) => {
     //클라이언트에게 데이터를 받아온다, roomName과 done을
     socket.join(roomName);
-    done();
     socket.to(roomName).emit("welcome"); //Client에게 welcome 전송!
   });
   socket.on("offer", (offer, roomName) => {
     socket.to(roomName).emit("offer", offer);
+  });
+
+  socket.on("answer", (answer, roomName) => {
+    socket.to(roomName).emit("answer", answer);
   });
 });
 const handleListen = () => console.log(`Listening on http://localhost:3000`);
