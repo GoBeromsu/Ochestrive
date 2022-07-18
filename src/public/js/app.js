@@ -11,6 +11,7 @@ let myStream;
 let muted = false;
 let cameraOff = false;
 let roomName;
+let myPeerConnection;
 
 // 카메라 id를 가져옵니다
 async function getCameras() {
@@ -99,12 +100,15 @@ cameraSelect.addEventListener("input", handleCameraChange);
 const welcome = document.getElementById("welcome");
 const welcomeForm = welcome.querySelector("form");
 
-function startMedia() {
+async function startMedia() {
   welcome.hidden = true;
   call.hidden = false;
-  getMedia();
+  await getMedia();
+  makeConnection();
 }
 
+// form에 담긴 데이터를 소켓을 통해 보낸다
+// 여기에는 방 이름과 start Media가 담겨 있다
 function handleWelcomeSubmit(event) {
   event.preventDefault();
   const input = welcomeForm.querySelector("input");
@@ -113,8 +117,26 @@ function handleWelcomeSubmit(event) {
   input.value = "";
 }
 
+// 정확히 여기서 코드 흐름이 시작되는거임
 welcomeForm.addEventListener("submit", handleWelcomeSubmit);
 
-socket.on("welcome", () => {//socket으로부터 데이터가 오면, log 출력
-  console.log("sombody joined");
+// socket Code
+// 상대방이 offer에게 보내는 코드임
+// socket을 통해 offer를 방 만든 사람에게 보냄
+socket.on("welcome", async () => {
+  const offer = await myPeerConnection.createOffer();
+  myPeerConnection.setLocalDescription(offer);
+  console.log("sent the offer");
+  socket.emit("offer", offer, roomName);
 });
+
+socket.on("offer", (offer) => {
+  console.log(offer);
+});
+
+function makeConnection() {
+  myPeerConnection = new RTCPeerConnection();
+  myStream
+  .getTracks()
+  .forEach((track) => myPeerConnection.addTrack(track, myStream));
+}
