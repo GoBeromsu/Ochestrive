@@ -121,14 +121,6 @@ async function handleWelcomeSubmit(event) {
 // 정확히 여기서 코드 흐름이 시작되는거임
 welcomeForm.addEventListener("submit", handleWelcomeSubmit);
 
-// offer를 소켓으로부터 받으면 offer를 만들기 시작하는거야
-socket.on("offer", async () => {
-  const offer = await myPeerConnection.createOffer();
-  myPeerConnection.setLocalDescription(offer);
-  console.log("sent the offer");
-  socket.emit("offer", offer, roomName);
-});
-
 // socket Code
 // 상대방이 offer에게 보내는 코드임
 // socket을 통해 offer를 방 만든 사람에게 보냄
@@ -139,13 +131,40 @@ socket.on("welcome", async () => {
   socket.emit("offer", offer, roomName);
 });
 
-socket.on("offer", (offer) => {
-  console.log(offer);
+socket.on("offer", async (offer) => {
+  console.log("received the offer");
+  myPeerConnection.setRemoteDescription(offer);
+  const answer = await myPeerConnection.createAnswer();
+  myPeerConnection.setLocalDescription(answer);
+  socket.emit("answer", answer, roomName);
+  console.log("sent the answer");
+});
+
+socket.on("answer", (answer) => {
+  console.log("received the answer");
+  myPeerConnection.setRemoteDescription(answer);
+});
+
+socket.on("ice", (ice) => {
+  console.log("recieved candidate");
+  myPeerConnection.addIceCandidate(ice);
 });
 
 function makeConnection() {
   myPeerConnection = new RTCPeerConnection();
+  myPeerConnection.addEventListener("icecandidate", handleIce);
+  myPeerConnection.addEventListener("addStream", handleAddStream);
   myStream
     .getTracks()
     .forEach((track) => myPeerConnection.addTrack(track, myStream));
+}
+
+function handleIce(data) {
+  console.log("sent candidate");
+  socket.emit("ice", data.candidate, roomName);
+}
+
+function handleAddStream(data) {
+  const peerFace = document.getElementById("peerFace");
+  peerFace.srcObject = data.myStream;
 }
