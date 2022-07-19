@@ -88,6 +88,13 @@ function handleCameraClick() {
 async function handleCameraChange() {
   // cameraSelect로 카메라 ID를 가져오면, getMedia에서 비디오 스트림을 전환해준다.
   await getMedia(camerasSelect.value);
+  if (myPeerConnection) {
+    const videoTrack = myStream.getVideoTracks()[0];
+    const videoSender = myPeerConnection
+      .getSenders()
+      .find((sender) => sender.track.kind === "video");
+    videoSender.replaceTrack(videoTrack);
+  }
 }
 
 muteBtn.addEventListener("click", handleMuteClick);
