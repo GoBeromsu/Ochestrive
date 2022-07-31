@@ -1,6 +1,6 @@
 // 라이브러리 && 옵션
 import { instrument } from "@socket.io/admin-ui";
-import { Server } from 'socket.io';
+import { Server } from "socket.io";
 import express from "express";
 import http from "http";
 
@@ -37,7 +37,6 @@ const handleListen = () => {
 	console.log("Kurento http Server started");
 	console.log("Open " + url.format(asUrl) + " with a WebRTC capable browser");
 };
-
 
 // https Server
 // https 접속 안되면 크롬에서 chrome://flags/#allow-insecure-localhost를 enabled로 바꿀 것
@@ -122,4 +121,4 @@ function stop(seesionId) {}
 
 function clearCandidatesQueue(sessionId) {}
 
-httpsServer.listen(port,handleListen)
+httpsServer.listen(port, handleListen);
