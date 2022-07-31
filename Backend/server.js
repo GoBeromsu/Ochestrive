@@ -8,19 +8,19 @@ const minimist = require("minimist");
 const url = require("url");
 const fs = require("fs");
 
-var argv = minimist(process.argv.slice(2), {
+const argv = minimist(process.argv.slice(2), {
 	default: {
 		as_uri: "https://localhost:3000/",
 		ws_uri: "ws://localhost:8888/kurento",
 	},
 });
-var options = {
+const options = {
 	key: fs.readFileSync("./BackEnd/keys/server.key"),
 	cert: fs.readFileSync("./BackEnd/keys/server.crt"),
 };
 
 // https Server startup
-var app = express();
+const app = express();
 
 app.set("view engine", "pug");
 app.set("views", "./FrontEnd"); // express() default 구조 변경을 위함 -> view
@@ -43,7 +43,7 @@ const handleListen = () => {
 // https 접속 안되면 크롬에서 chrome://flags/#allow-insecure-localhost를 enabled로 바꿀 것
 //Socket IO Option
 // path : 통신 경로 : 프론트엔드에서 script 접근하는 경로
-var wsServer = new Server(httpsServer, {
+const wsServer = new Server(httpsServer, {
 	cors: {
 		//데모 적용 가능
 		origin: ["https://admin.socket.io"],
@@ -55,7 +55,7 @@ instrument(wsServer, {
 });
 
 wsServer.on("connection", (socket) => {
-	var sessionId = 0; //일단은 ID의 값을 순차적으로 올려갈 생각입니다
+	const sessionId = 0; //일단은 ID의 값을 순차적으로 올려갈 생각입니다
 	console.log("Connection reciev3ed with Session ID" + sessionId);
 
 	ws.on("error", function (error) {
@@ -70,7 +70,7 @@ wsServer.on("connection", (socket) => {
 	});
 
 	ws.on("message", function (_message) {
-		var message = JSON.parse(_message);
+		const message = JSON.parse(_message);
 		console.log("Connection " + sessionId + " received message ", message);
 
 		switch (message.id) {
