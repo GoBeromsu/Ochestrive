@@ -1,22 +1,48 @@
-var express = require("express");
-var ws = require("ws");
-var https = require("https");
+// 라이브러리 && 옵션
 
+import express from "express";
+import http from "http";
+
+
+var minimist = require("minimist");
+var url = require("url");
+var fs = require("fs");
+var ws = require('ws');
+
+var argv = minimist(process.argv.slice(2), {
+	default: {
+		as_uri: "https://localhost:3000/",
+		ws_uri: "ws://localhost:8888/kurento",
+	},
+});
+var options = {
+	key: fs.readFileSync("./BackEnd/keys/server.key"),
+	cert: fs.readFileSync("./BackEnd/keys/server.crt"),
+};
+
+// https Server startup
 var app = express();
 
-// Server set up
+app.set("view engine", "pug");
+app.set("views", "./FrontEnd");
+app.use("/public", express.static("./FrontEnd"));
+app.get("/", (req, res) => res.render("test"));
+app.get("/", (req, res) => res.redirect("/")); // 다른 경로 입력시 /으로 리다이렉트
+
+// // Server set up
 
 var asUrl = url.parse(argv.as_uri);
 var port = asUrl.port;
-
-// https Server
-var server = https.createServer(options, app).listen(port, function () {
-  console.log("Kurento http Server started");
-  console.log("Open " + url.format(asUrl) + " with a WebRTC capable browser");
+var server = http.createServer(options, app).listen(port, function () {
+	console.log("Kurento http Server started");
+	console.log("Open " + url.format(asUrl) + " with a WebRTC capable browser");
 });
 
-//Socket IO Option
-// path : 통신 경로 : 프론트엔드에서 script 접근하는 경로
+
+// // https Server
+
+// //Socket IO Option
+// // path : 통신 경로 : 프론트엔드에서 script 접근하는 경로
 var wsServer = new ws.Server({ server: server });
 
 wsServer.on("connection", (socket) => {
@@ -85,4 +111,4 @@ function onIceCandidate(seesionId, _candidate) {}
 
 function stop(seesionId) {}
 
-function clearCandidatesQueue(sessionId){}
+function clearCandidatesQueue(sessionId) {}
