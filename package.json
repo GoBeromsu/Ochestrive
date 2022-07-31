@@ -1,23 +1,26 @@
 {
-  "name": "ochestrive",
-  "version": "1.0.0",
-  "description": "- Babel download\r   - npm i @babel/core @babel/cli @babel/node -D\r - package.json의 scripts\r   - //nodemon 호출되면 nodemon.js를 살펴보고 nodemon 실행\r - nodemon은 sever.js 를 수정할 때만 새로 고침하도록 하고 싶음\r   - 우리 프로젝트를 살펴보고 서버를 재시작해주는 것임\r   - 우리가 한 파일을 javascript로 컴파일 해준다",
-  "main": "server.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/GoBeromsu/Ochestrive.git"
-  },
-  "author": "",
-  "dependencies": {
-    "express": "^4.17.0",
-    "kurento-client": "git+https://github.com/Kurento/kurento-client-js.git",
-    "minimist": "^1.1.1",
-    "socket.io": "^4.5.1",
-    "ws": "^7.1.0"
-  },
-  "homepage": "https://github.com/GoBeromsu/Ochestrive#readme"
+	"name": "ochestrive",
+	"version": "1.0.0",
+	"description": "Orchestrive using WebRTC and Websockets",
+	"main": "server.js",
+	"scripts": {
+		"dev": "nodemon"
+	},
+	"devDependencies": {
+		"@babel/cli": "^7.18.6",
+		"@babel/core": "^7.18.6",
+		"@babel/node": "^7.18.6",
+		"@babel/preset-env": "^7.18.6",
+		"nodemon": "^2.0.18"
+	},
+	"dependencies": {
+		"kurento-client": "git+https://github.com/Kurento/kurento-client-js.git",
+		"minimist": "^1.1.1",
+		"@socket.io/admin-ui": "^0.4.0",
+		"express": "^4.18.1",
+		"pug": "^3.0.2",
+		"socket.io": "^4.5.1",
+		"ws": "^8.8.0"
+	},
+	"homepage": "https://github.com/GoBeromsu/Ochestrive#readme"
 }
