@@ -2,11 +2,14 @@
 import { instrument } from "@socket.io/admin-ui";
 import { Server } from "socket.io";
 import express from "express";
-import http from "http";
-
-const minimist = require("minimist");
-const url = require("url");
-const fs = require("fs");
+import https from "https";
+import fs from 'fs'; 
+import path from 'path';
+import url from 'url';
+import minimist from 'minimist';
+// const minimist = require("minimist");
+// const url = require("url");
+// const fs = require("fs");
 
 const argv = minimist(process.argv.slice(2), {
 	default: {
@@ -32,7 +35,7 @@ app.get("/", (req, res) => res.redirect("/")); // 다른 경로 입력시 /으�
 
 const asUrl = url.parse(argv.as_uri);
 const port = asUrl.port;
-const httpsServer = http.createServer(options, app);
+const httpsServer = https.createServer(options, app);
 const handleListen = () => {
 	console.log("Kurento http Server started");
 	console.log("Open " + url.format(asUrl) + " with a WebRTC capable browser");
