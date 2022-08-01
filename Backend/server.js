@@ -3,13 +3,10 @@ import { instrument } from "@socket.io/admin-ui";
 import { Server } from "socket.io";
 import express from "express";
 import https from "https";
-import fs from 'fs'; 
-import path from 'path';
-import url from 'url';
-import minimist from 'minimist';
-// const minimist = require("minimist");
-// const url = require("url");
-// const fs = require("fs");
+import fs from "fs";
+import path from "path";
+import url from "url";
+import minimist from "minimist";
 
 const argv = minimist(process.argv.slice(2), {
 	default: {
@@ -60,24 +57,23 @@ wsServer.on("connection", (socket) => {
 	const sessionId = 0; //일단은 ID의 값을 순차적으로 올려갈 생각입니다
 	console.log("Connection reciev3ed with Session ID" + sessionId);
 
-	ws.on("error", function (error) {
+	// Error 발생
+	socket.on("error", error => {
 		console.log("Connection " + sessionId + " error");
-		stop(sessionId);
 	});
 
-	ws.on("close", function () {
+	// 연결 끊겼을 때
+	socket.on("disconnect", () => {
 		console.log("Connection " + sessionId + " closed");
-		stop(sessionId);
-		userRegistry.unregister(sessionId);
 	});
-
-	ws.on("message", function (_message) {
+	
+	socket.on("message", function (_message) {
 		const message = JSON.parse(_message);
 		console.log("Connection " + sessionId + " received message ", message);
 
 		switch (message.id) {
 			case "register": //ID 등록
-				register(sessionId, message.name, ws);
+				register(sessionId, message.name, socket);
 				break;
 
 			case "call": //피어 간 연결
@@ -90,7 +86,7 @@ wsServer.on("connection", (socket) => {
 					message.from,
 					message.callResponse,
 					message.sdpOffer,
-					ws,
+					socket,
 				);
 				break;
 
@@ -103,7 +99,7 @@ wsServer.on("connection", (socket) => {
 				break;
 
 			default:
-				ws.send(
+				socket.send(
 					JSON.stringify({
 						id: "error",
 						message: "Invalid message " + message,
@@ -114,14 +110,16 @@ wsServer.on("connection", (socket) => {
 	});
 });
 
-function call(callerID, to, from, sdpOffer) {}
+function call(callerID, to, from, sdpOffer) { }
 
-function register(id, name, ws, callback) {}
+function register(id, name, ws, callback) {
 
-function onIceCandidate(seesionId, _candidate) {}
+}
 
-function stop(seesionId) {}
+function onIceCandidate(seesionId, _candidate) { }
 
-function clearCandidatesQueue(sessionId) {}
+function stop(seesionId) { }
+
+function clearCandidatesQueue(sessionId) { }
 
 httpsServer.listen(port, handleListen);
