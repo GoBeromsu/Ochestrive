@@ -2,11 +2,15 @@
 import { instrument } from "@socket.io/admin-ui";
 import { Server } from "socket.io";
 import express from "express";
-import http from "http";
+import https from "https";
+import fs from "fs";
+import url from "url";
+import minimist from "minimist";
+import kurento from 'kurento-client';
 
-const minimist = require("minimist");
-const url = require("url");
-const fs = require("fs");
+
+import Session from './Session';
+import UserController from "./UserController";
 
 const argv = minimist(process.argv.slice(2), {
 	default: {
@@ -23,16 +27,15 @@ const options = {
 const app = express();
 
 app.set("view engine", "pug");
-app.set("views", "./FrontEnd"); // express() default 구조 변경을 위함 -> view
-app.use("/public", express.static("./FrontEnd"));
+app.set("views", './FrontEnd'); // express() default 구조 변경을 위함 -> view
+app.use(express.static("./FrontEnd"));// FrontEnd를 위한 정적 경로 생성
 app.get("/", (req, res) => res.render("test"));
 app.get("/", (req, res) => res.redirect("/")); // 다른 경로 입력시 /으로 리다이렉트
 
-// // Server set up
-
+// Server set up
 const asUrl = url.parse(argv.as_uri);
 const port = asUrl.port;
-const httpsServer = http.createServer(options, app);
+const httpsServer = https.createServer(options, app);
 const handleListen = () => {
 	console.log("Kurento http Server started");
 	console.log("Open " + url.format(asUrl) + " with a WebRTC capable browser");
@@ -53,72 +56,137 @@ instrument(wsServer, {
 	auth: false,
 });
 
+
+// 변수
+let rooms = {};//방을 저장하는 공간
+let userController = new UserController
+
+// Socket Server
 wsServer.on("connection", (socket) => {
-	const sessionId = 0; //일단은 ID의 값을 순차적으로 올려갈 생각입니다
-	console.log("Connection reciev3ed with Session ID" + sessionId);
 
-	ws.on("error", function (error) {
+	// Error 발생
+	socket.on("error", error => {
 		console.log("Connection " + sessionId + " error");
-		stop(sessionId);
 	});
 
-	ws.on("close", function () {
+	// 연결 끊겼을 때
+	socket.on("disconnect", () => {
 		console.log("Connection " + sessionId + " closed");
-		stop(sessionId);
-		userRegistry.unregister(sessionId);
 	});
 
-	ws.on("message", function (_message) {
-		const message = JSON.parse(_message);
-		console.log("Connection " + sessionId + " received message ", message);
+	socket.on('message', message => {
+		console.log(`Connection: %s receive message`, message.id);
 
 		switch (message.id) {
-			case "register": //ID 등록
-				register(sessionId, message.name, ws);
+			case 'joinRoom':
+				joinRoom(socket, message, err => {
+					if (err) {
+						console.error(`join Room error ${err}`);
+					}
+				});
 				break;
-
-			case "call": //피어 간 연결
-				call(sessionId, message.to, message.from, message.sdpOffer);
+			case 'receiveVideoFrom':
+				receiveVideoFrom(socket, message.sender, message.sdpOffer, (error) => {
+					if (error) {
+						console.error(error);
+					}
+				});
 				break;
-
-			case "incomingCallResponse": //
-				incomingCallResponse(
-					sessionId,
-					message.from,
-					message.callResponse,
-					message.sdpOffer,
-					ws,
-				);
+			case 'leaveRoom':
+				leaveRoom(socket, (error) => {
+					if (error) {
+						console.error(error);
+					}
+				});
 				break;
-
-			case "stop":
-				stop(sessionId);
+			case 'onIceCandidate':
+				addIceCandidate(socket, message, (error) => {
+					if (error) {
+						console.error(error);
+					}
+				});
 				break;
-
-			case "onIceCandidate":
-				onIceCandidate(sessionId, message.candidate);
-				break;
-
 			default:
-				ws.send(
-					JSON.stringify({
-						id: "error",
-						message: "Invalid message " + message,
-					}),
-				);
-				break;
+				socket.emit({ id: 'error', msg: `Invalid message ${message}` });
 		}
 	});
 });
 
-function call(callerID, to, from, sdpOffer) {}
+function joinRoom(socket, message, callback) {
 
-function register(id, name, ws, callback) {}
+	// Get Room
+	getRoom(message.roomName, (error, room) => {
+		if (error) {
+			callback(error);
+			return;
+		}
+		// User를 방에 참가 시킨다
+		join(socket, room, message.name, (err, user) => {
+			console.log(`join success : ${user.name}`);
+			if (err) {
+				callback(err);
+				return;
+			}
+			callback();
+		});
+	});
+}
 
-function onIceCandidate(seesionId, _candidate) {}
+function getRoom(roomName, callback) {
 
-function stop(seesionId) {}
+	let room = rooms[roomName];
 
-function clearCandidatesQueue(sessionId) {}
+	if (room == null) {
+		console.log(`create new room : ${roomName}`);
+		getKurentoClient((error, kurentoClient) => {
+			if (error) {
+				return callback(error);
+			}
+			// 처음 방 생성하는 코드
+			kurentoClient.create('MediaPipeline', (error, pipeline) => {
+				if (error) {
+					return callback(error);
+				}
+				room = {
+					name: roomName,
+					pipline: pipeline,
+					participants: {},
+					kurentoClient: kurentoClient
+				}
+				rooms[roomName] = room;
+				callback(null, room)
+			})
+		})
+	}
+	else {
+		console.log(`get existing room : ${roomName}`);
+		callback(null, room);
+	}
+
+}
+
+
+function join(socket, room, userName, callback) {
+
+	// Session에 유저를 더합니다
+	let userSession = new Session(socket, userName, room.name);
+
+	// 유저를 등록합니다.
+	userController.register(userSession);
+	// 유저를 방에 참가시킵니다
+	room.participants[userSession.name] = userSession;
+}
+
+// Kurento Client를 통해서 개발자들은 Kurento를 다룰 수 있다
+// 코드 흐름상 Kurento를 처음 만드는 곳은 Get Room -> 방을 만들 때이다.
+function getKurentoClient(callback) {
+	kurento(wsUrl, (error, kurentoClient) => {
+		if (error) {
+			let message = `Kurento Media Server를 ${wsUrl}에서 찾을 수 없습니다`
+			return callback(`${message} . Exiting with error ${error}`);
+		}
+		callback(null, kurentoClient)
+	})
+}
 
 httpsServer.listen(port, handleListen);
