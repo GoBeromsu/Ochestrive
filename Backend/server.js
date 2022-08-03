@@ -63,18 +63,19 @@ let userController = new UserController
 
 // Socket Server
 wsServer.on("connection", (socket) => {
-
+	console.log('Connected Server')
 	// Error 발생
 	socket.on("error", error => {
-		console.log("Connection " + sessionId + " error");
+		console.log("Connection error");
 	});
 
 	// 연결 끊겼을 때
 	socket.on("disconnect", () => {
-		console.log("Connection " + sessionId + " closed");
+		console.log("Connection  closed");
 	});
 
-	socket.on('message', message => {
+	socket.on('message', _message => {
+		var message = JSON.parse(_message);
 		console.log(`Connection: %s receive message`, message.id);
 
 		switch (message.id) {
