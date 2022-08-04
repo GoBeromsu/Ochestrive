@@ -23,6 +23,7 @@ const options = {
 	cert: fs.readFileSync("./BackEnd/keys/server.crt"),
 };
 
+
 // https Server startup
 const app = express();
 
@@ -33,9 +34,10 @@ app.get("/", (req, res) => res.render("test"));
 app.get("/", (req, res) => res.redirect("/")); // 다른 경로 입력시 /으로 리다이렉트
 
 // Server set up
-const asUrl = url.parse(argv.as_uri);
-const port = asUrl.port;
-const httpsServer = https.createServer(options, app);
+let asUrl = url.parse(argv.as_uri);
+let port = asUrl.port;
+let httpsServer = https.createServer(options, app);
+let wsUrl = asUrl.href;
 const handleListen = () => {
 	console.log("Kurento http Server started");
 	console.log("Open " + url.format(asUrl) + " with a WebRTC capable browser");
@@ -59,22 +61,24 @@ instrument(wsServer, {
 
 // 변수
 let rooms = {};//방을 저장하는 공간
-let userController = new UserController
+let userController = new UserController;
+
 
 // Socket Server
 wsServer.on("connection", (socket) => {
-
+	console.log('Connected Server')
 	// Error 발생
 	socket.on("error", error => {
-		console.log("Connection " + sessionId + " error");
+		console.log("Connection error");
 	});
 
 	// 연결 끊겼을 때
 	socket.on("disconnect", () => {
-		console.log("Connection " + sessionId + " closed");
+		console.log("Connection  closed");
 	});
 
-	socket.on('message', message => {
+	socket.on('message', _message => {
+		var message = JSON.parse(_message);
 		console.log(`Connection: %s receive message`, message.id);
 
 		switch (message.id) {
@@ -179,7 +183,9 @@ function join(socket, room, userName, callback) {
 
 // Kurento Client를 통해서 개발자들은 Kurento를 다룰 수 있다
 // 코드 흐름상 Kurento를 처음 만드는 곳은 Get Room -> 방을 만들 때이다.
+
 function getKurentoClient(callback) {
+
 	kurento(wsUrl, (error, kurentoClient) => {
 		if (error) {
 			let message = `Kurento Media Server를 ${wsUrl}에서 찾을 수 없습니다`
@@ -187,6 +193,7 @@ function getKurentoClient(callback) {
 		}
 		callback(null, kurentoClient)
 	})
+	console.log(kurento)
 }
 
 httpsServer.listen(port, handleListen);

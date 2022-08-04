@@ -10,23 +10,15 @@ html(lang="en")
         header
             h1 Orchestrive
         main
-            div#welcome
-                form#nickname 
-                    input(placeholder="nickname" type="text", required)
-                    button Save
-                h4 Open Rooms:
-                ul
-                form#roomName    
-                    input(placeholder="room name", required, type="text")
+            div#Name
+                h2 User Name
+                form
+                    input(placeholder="userName" type="text", required)
+            div#Session
+                h2 Room Name
+                form 
+                    input(placeholder="room Name", required, type="text")
                     button Enter Room
 
-            div#room 
-                h3 
-                ul
-                form#msg 
-                    input(placeholder="message" type="text", required)
-                    button Send
         script(src="/socket.io/socket.io.js")
         script(src="./Client.js")  
-
-        //- script(src="/public/js/app.js") 
