@@ -10,26 +10,26 @@ socket.on('connect', () => {
 
 });
 
-// socket.on('message', message => {
-//     console.log('Recieved message')
+socket.on('message', message => {
+    console.log('Recieved message')
 
-//     switch (message) {
+    switch (message) {
 
-//     }
-// })
+    }
+})
 
 
 
 // User 등록하는 함수
-async function register(event) {
+function register(event) {
     event.preventDefault();
     const name = nameForm.querySelector("input").value;
     const session = sessionForm.querySelector("input").value;
 
     var message = {
-        id: 'register',
+        id: 'joinRoom',
         name: name,
-        session: session
+        roomName: session
     }
 
     sendMessage(message);
