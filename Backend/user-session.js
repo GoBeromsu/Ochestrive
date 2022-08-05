@@ -1,7 +1,7 @@
 /**
  * Created by eak on 9/14/15.
  */
- function UserSession(id, socket) {
+function UserSession(id, socket) {
     this.id = id;
     this.socket = socket;
     this.outgoingMedia = null;
@@ -45,7 +45,7 @@ UserSession.prototype.sendMessage = function (data) {
     this.socket.emit('message', data);
 };
 
-UserSession.prototype.setRoomName = function (roomName){
+UserSession.prototype.setRoomName = function (roomName) {
     this.roomName = roomName;
 }
 

@@ -9,14 +9,17 @@ import minimist from "minimist";
 import kurento from 'kurento-client';
 
 
-import Session from './Session';
-import UserController from "./UserController";
+import UserSession from './user-session';
+import UserRegistry from "./user-registry";
+
+var userRegistry = new UserRegistry();
+
 
 const argv = minimist(process.argv.slice(2), {
 	default: {
 		as_uri: "https://localhost:3000/",
-		ws_uri: "ws://localhost:8888/kurento",
-	},
+		ws_uri: "ws://localhost:8888/kurento"
+	}
 });
 const options = {
 	key: fs.readFileSync("./BackEnd/keys/server.key"),
@@ -61,7 +64,7 @@ instrument(wsServer, {
 
 // 변수
 let rooms = {};//방을 저장하는 공간
-let userController = new UserController;
+let userController = new UserRegistry;
 
 
 // Socket Server
@@ -79,9 +82,13 @@ wsServer.on("connection", (socket) => {
 
 	socket.on('message', _message => {
 		var message = JSON.parse(_message);
-		console.log(`Connection: %s receive message`, message.id);
+		console.log(`Server : %s receive message`, message.id);
 
 		switch (message.id) {
+			case 'register':
+				console.log('Server : ' + socket.id + '를 등록 중에 있습니다')
+				register(socket, message.name, function () { })
+				break;
 			case 'joinRoom':
 				joinRoom(socket, message, err => {
 					if (err) {
@@ -116,6 +123,19 @@ wsServer.on("connection", (socket) => {
 	});
 });
 
+
+
+function register(socket, name, callback) {
+	var userSession = new UserSession(socket.id, socket);//새로운 유저 세션을 만듭니다.
+	userSession.name = name; // 유저의 이름을 등록합니다.
+	userRegistry.register(userSession);
+	userSession.sendMessage({
+		id: 'registered',
+		data: 'Successfully registered' + socket.id
+	})
+}
+
+
 function joinRoom(socket, message, callback) {
 
 	// Get Room
@@ -142,10 +162,9 @@ function getRoom(roomName, callback) {
 
 	if (room == null) {
 		console.log(`create new room : ${roomName}`);
+
 		getKurentoClient((error, kurentoClient) => {
-			if (error) {
-				return callback(error);
-			}
+
 			// 처음 방 생성하는 코드
 			kurentoClient.create('MediaPipeline', (error, pipeline) => {
 				if (error) {
@@ -159,7 +178,9 @@ function getRoom(roomName, callback) {
 				}
 				rooms[roomName] = room;
 				callback(null, room)
+
 			})
+			console.log(room)
 		})
 	}
 	else {
@@ -171,29 +192,31 @@ function getRoom(roomName, callback) {
 
 
 function join(socket, room, userName, callback) {
-
+	console.log("hihi")
 	// Session에 유저를 더합니다
-	let userSession = new Session(socket, userName, room.name);
+	let userSession = new UserSession(socket, userName, room.name);
 
 	// 유저를 등록합니다.
 	userController.register(userSession);
-	// 유저를 방에 참가시킵니다
-	room.participants[userSession.name] = userSession;
+
+
 }
 
 // Kurento Client를 통해서 개발자들은 Kurento를 다룰 수 있다
 // 코드 흐름상 Kurento를 처음 만드는 곳은 Get Room -> 방을 만들 때이다.
-
+var kurentoClient;
 function getKurentoClient(callback) {
 
-	kurento(wsUrl, (error, kurentoClient) => {
+	kurento(wsUrl, (error, _kurentoClient) => {
 		if (error) {
-			let message = `Kurento Media Server를 ${wsUrl}에서 찾을 수 없습니다`
+			let message = `Could not find media server at address ${wsUrl}`;
 			return callback(`${message} . Exiting with error ${error}`);
 		}
-		callback(null, kurentoClient)
+
+		kurentoClient = _kurentoClient
+		kurentoClient.
+			callback(null, _kurentoClient);
 	})
-	console.log(kurento)
-}
+};
 
 httpsServer.listen(port, handleListen);
