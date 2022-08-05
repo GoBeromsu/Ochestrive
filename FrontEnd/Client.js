@@ -6,34 +6,34 @@ const nameForm = Name.querySelector('form');
 const Session = document.getElementById("Session");
 const sessionForm = Session.querySelector("form");
 socket.on('connect', () => {
-    console.log('Web Socket connection success')
+    console.log('Client : ws connection successed')
 
 });
 
 socket.on('message', message => {
-    console.log('Recieved message')
 
-    switch (message) {
 
+    switch (message.id) {
+        case "registered":
+            console.log(
+                'Client Recieved Message : ' + message.data
+            )
+            break
     }
 })
 
-
-
-// User 등록하는 함수
 function register(event) {
     event.preventDefault();
-    const name = nameForm.querySelector("input").value;
-    const session = sessionForm.querySelector("input").value;
 
     var message = {
-        id: 'joinRoom',
-        name: name,
-        roomName: session
+        id: 'register',
+        name: nameForm.querySelector("input").value,
     }
 
-    sendMessage(message);
+    sendMessage(message)
 }
+
+
 
 
 function sendMessage(message) {
@@ -46,4 +46,5 @@ function sendMessage(message) {
 
 // Btn && EventListener
 
-sessionForm.addEventListener("submit", register);
+nameForm.addEventListener('submit', register)
+// sessionForm.addEventListener("submit", register);
