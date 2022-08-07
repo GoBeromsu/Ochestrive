@@ -3,8 +3,10 @@
 	"version": "6.1.1-dev",
 	"private": true,
 	"scripts": {
-		"postinstall": "cd static && bower install"
+		"postinstall": "cd static && bower install",
+		"dev": "nodemon"
 	},
+
 	"dependencies": {
 		"@socket.io/admin-ui": "^0.4.0",
 		"express": "^4.18.1",
@@ -15,6 +17,11 @@
 		"ws": "^8.8.0"
 	},
 	"devDependencies": {
-		"bower": "^1.4.1"
+		"bower": "^1.4.1",
+		"@babel/cli": "^7.18.6",
+		"@babel/core": "^7.18.6",
+		"@babel/node": "^7.18.6",
+		"@babel/preset-env": "^7.18.6",
+		"nodemon": "^2.0.18"
 	}
 }
