@@ -166,13 +166,15 @@ function register(socket, name, callback) {
  * @param callback
  */
 function joinRoom(socket, roomName, callback) {
-    getRoom(roomName, function (error, room) {
+
+    var room = getRoom(roomName, function (error, room) {
         if (error) {
             callback(error)
         }
-        join(socket, room, function (error, user) {
-            console.log('join success : ' + user.id);
-        });
+    });
+
+    join(socket, room, function (error, user) {
+        console.log('Server : join success : ' + user.id);
     });
 }
 
@@ -187,31 +189,29 @@ function getRoom(roomName, callback) {
 
     if (room == null) {
         console.log('Server : create new room ' + roomName);
-        getKurentoClient(function (error, kurentoClient) {
+        var kurentoClient = getKurentoClient(function (error, kurentoClient) {
             if (error) {
                 return callback(error);
             }
-
-            // create pipeline for room
-            kurentoClient.create('MediaPipeline', function (error, pipeline) {
-                if (error) {
-                    return callback(error);
-                }
-
-                room = {
-                    name: roomName,
-                    pipeline: pipeline,
-                    participants: {},
-                    kurentoClient: kurentoClient
-                };
-                rooms[roomName] = room;
-                callback(null, room);
-            });
         });
+
+        // create pipeline for room
+        var pipeline = kurentoClient.create('MediaPipeline', function (error, pipeline) {
+            if (error) {
+                return callback(error);
+            }
+        });
+        room = {
+            name: roomName,
+            pipeline: pipeline,
+            participants: {},
+            kurentoClient: kurentoClient
+        };
+        rooms[roomName] = room;
     } else {
         console.log('get existing room : ' + roomName);
-        callback(null, room);
     }
+    return room
 }
 
 /**
@@ -222,10 +222,11 @@ function getRoom(roomName, callback) {
  */
 function join(socket, room, callback) {
     // create user session
+    //  User의 socket id로 유저의 세션을 불러옵니다.
     var userSession = userRegistry.getById(socket.id);
     userSession.setRoomName(room.name);
 
-    room.pipeline.create('WebRtcEndpoint', function (error, outgoingMedia) {
+    var outgoingMedia = room.pipeline.create('WebRtcEndpoint', (error, outgoingMedia) => {
         if (error) {
             console.error('no participant in room');
             // no participants in room yet release pipeline
@@ -234,71 +235,72 @@ function join(socket, room, callback) {
             }
             return callback(error);
         }
-        outgoingMedia.setMaxVideoRecvBandwidth(100);
-        outgoingMedia.setMinVideoRecvBandwidth(20);
-        userSession.outgoingMedia = outgoingMedia;
+    })
 
-        // add ice candidate the get sent before endpoint is established
-        var iceCandidateQueue = userSession.iceCandidateQueue[socket.id];
-        if (iceCandidateQueue) {
-            while (iceCandidateQueue.length) {
-                var message = iceCandidateQueue.shift();
-                console.error('user : ' + userSession.id + ' collect candidate for outgoing media');
-                userSession.outgoingMedia.addIceCandidate(message.candidate);
-            }
+    // outgoingMedia.setMaxVideoRecvBandwidth(200);
+    // outgoingMedia.setMinVideoRecvBandwidth(200);
+    userSession.outgoingMedia = outgoingMedia;
+    // add ice candidate the get sent before endpoint is established
+    var iceCandidateQueue = userSession.iceCandidateQueue[socket.id];
+    if (iceCandidateQueue) {
+        while (iceCandidateQueue.length) {
+            var message = iceCandidateQueue.shift();
+            console.error('user : ' + userSession.id + ' collect candidate for outgoing media');
+            userSession.outgoingMedia.addIceCandidate(message.candidate);
         }
+    }
 
-        userSession.outgoingMedia.on('OnIceCandidate', function (event) {
-            console.log("generate outgoing candidate : " + userSession.id);
-            var candidate = kurento.register.complexTypes.IceCandidate(event.candidate);
-            userSession.sendMessage({
-                id: 'iceCandidate',
-                sessionId: userSession.id,
-                candidate: candidate
-            });
-        });
-
-        // notify other user that new user is joining
-        var usersInRoom = room.participants;
-        var data = {
-            id: 'newParticipantArrived',
-            new_user_id: userSession.id
-        };
-
-        // notify existing user
-        for (var i in usersInRoom) {
-            usersInRoom[i].sendMessage(data);
-        }
-
-        var existingUserIds = [];
-        for (var i in room.participants) {
-            existingUserIds.push(usersInRoom[i].id);
-        }
-        // send list of current user in the room to current participant
+    userSession.outgoingMedia.on('OnIceCandidate', function (event) {
+        console.log("generate outgoing candidate : " + userSession.id);
+        var candidate = kurento.register.complexTypes.IceCandidate(event.candidate);
         userSession.sendMessage({
-            id: 'existingParticipants',
-            data: existingUserIds,
-            roomName: room.name
+            id: 'iceCandidate',
+            sessionId: userSession.id,
+            candidate: candidate
         });
-
-        // register user to room
-        room.participants[userSession.id] = userSession;
-
-        //MP4 has working sound in VLC, not in windows media player,
-        //default mediaProfile is .webm which does have sound but lacks IE support
-        var recorderParams = {
-            mediaProfile: 'MP4',
-            uri: "file:///tmp/file" + userSession.id + ".mp4"
-        };
-
-        room.pipeline.create('RecorderEndpoint', recorderParams, function (error, recorderEndpoint) {
-            userSession.outgoingMedia.recorderEndpoint = recorderEndpoint;
-            outgoingMedia.connect(recorderEndpoint);
-        });
-
-        callback(null, userSession);
     });
+
+    // notify other user that new user is joining
+    var usersInRoom = room.participants;
+    var data = {
+        id: 'newParticipantArrived',
+        new_user_id: userSession.id
+    };
+
+    // notify existing user
+    for (var i in usersInRoom) {
+        usersInRoom[i].sendMessage(data);
+    }
+
+    var existingUserIds = [];
+    for (var i in room.participants) {
+        existingUserIds.push(usersInRoom[i].id);
+    }
+    // send list of current user in the room to current participant
+    userSession.sendMessage({
+        id: 'existingParticipants',
+        data: existingUserIds,
+        roomName: room.name
+    });
+
+    // register user to room
+    room.participants[userSession.id] = userSession;
+
+    //MP4 has working sound in VLC, not in windows media player,
+    //default mediaProfile is .webm which does have sound but lacks IE support
+    var recorderParams = {
+        mediaProfile: 'MP4',
+        uri: "file:///tmp/file" + userSession.id + ".mp4"
+    };
+
+    room.pipeline.create('RecorderEndpoint', recorderParams, function (error, recorderEndpoint) {
+        userSession.outgoingMedia.recorderEndpoint = recorderEndpoint;
+        outgoingMedia.connect(recorderEndpoint);
+    });
+
+
 }
+
 
 /**
  * Leave (conference) call room
@@ -532,7 +534,7 @@ function addIceCandidate(socket, message) {
  * @returns {*}
  */
 function getKurentoClient(callback) {
-    kurento(settings.KURENTOURL, function (error, kurentoClient) {
+    return kurento(settings.KURENTOURL, function (error, kurentoClient) {
         if (error) {
             var message = 'Coult not find media server at address ' + settings.KURENTOURL;
             return callback(message + ". Exiting with error " + error);
