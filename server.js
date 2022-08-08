@@ -96,14 +96,17 @@ io.on('connection', function (socket) {
 
         switch (message.id) {
             case 'register':
-                console.log('registering ' + socket.id);
+                /** 
+                 * Client로부터 온 Register에 대한 응답
+                */
+                console.log('Server : Register ' + socket.id);
                 register(socket, message.name, function () {
 
                 });
 
                 break;
             case 'joinRoom':
-                console.log(socket.id + ' joinRoom : ' + message.roomName);
+                console.log('Server : ' + socket.id + ' joinRoom : ' + message.roomName);
                 joinRoom(socket, message.roomName, function () {
 
                 });
@@ -151,9 +154,9 @@ function register(socket, name, callback) {
     userRegistry.register(userSession);
     userSession.sendMessage({
         id: 'registered',
-        data: 'Successfully registered ' + socket.id
+        data: 'Server : Successfully registered ' + socket.id
     });
-    console.log(userRegistry);
+    // console.log(userRegistry);
 }
 
 /**
@@ -183,7 +186,7 @@ function getRoom(roomName, callback) {
     var room = rooms[roomName];
 
     if (room == null) {
-        console.log('create new room : ' + roomName);
+        console.log('Server : create new room ' + roomName);
         getKurentoClient(function (error, kurentoClient) {
             if (error) {
                 return callback(error);

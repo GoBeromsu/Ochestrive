@@ -88,8 +88,11 @@ function sendMessage(data) {
 
 /**
  * Register to server
+ * 유저 이름 정보를 등록하는 함수 
+ * 가장 먼저 실행된다.
  */
 function register() {
+    console.log('Client : Register user name')
     var data = {
         id: "register",
         name: document.getElementById('userName').value
@@ -101,14 +104,14 @@ function register() {
  * Check if roomName exists, use DOM roomName otherwise, then join room
  * @param roomName
  */
-function joinRoom(roomName) {
+function joinRoom() {
     disableElements('joinRoom');
+    roomName = document.getElementById('roomName').value;
+    if (!roomName) {
+        // 무조건 방을 생성하는 버그 있음
+        alert('방 이름을 입력하시오')
 
-    // Check if roomName was given or if it's joining via roomName input field
-    if (typeof roomName == 'undefined') {
-        roomName = document.getElementById('roomName').value;
     }
-    document.getElementById('roomName').value = roomName;
 
     var data = {
         id: "joinRoom",
