@@ -166,16 +166,17 @@ function register(socket, name, callback) {
  * @param callback
  */
 function joinRoom(socket, roomName, callback) {
-
-    var room = getRoom(roomName, function (error, room) {
+    const room = getRoom(roomName, function (error, room) {
         if (error) {
             callback(error)
         }
-    });
 
-    join(socket, room, function (error, user) {
-        console.log('Server : join success : ' + user.id);
     });
+    join(socket, room, function (error, user) {
+        console.log('join success : ' + user.id);
+    });
+    console.log(room)
+
 }
 
 /**
@@ -185,34 +186,43 @@ function joinRoom(socket, roomName, callback) {
  */
 function getRoom(roomName, callback) {
 
-    var room = rooms[roomName];
+    let room = rooms[roomName];
 
     if (room == null) {
-        console.log('Server : create new room ' + roomName);
-        var kurentoClient = getKurentoClient(function (error, kurentoClient) {
+        console.log('create new room : ' + roomName);
+        const kurentoClient = getKurentoClient(function (error, kurentoClient) {
+            if (error) {
+                return callback(error);
+            }          // create pipeliRne for room
+        })
+        const pipeline = kurentoClient.create('MediaPipeline', function (error, pipeline) {
             if (error) {
                 return callback(error);
             }
-        });
+        })
 
-        // create pipeline for room
-        var pipeline = kurentoClient.create('MediaPipeline', function (error, pipeline) {
-            if (error) {
-                return callback(error);
-            }
-        });
         room = {
             name: roomName,
             pipeline: pipeline,
             participants: {},
             kurentoClient: kurentoClient
         };
+
         rooms[roomName] = room;
-    } else {
-        console.log('get existing room : ' + roomName);
+        callback(null, room);
+
     }
+
+    else {
+        console.log('get existing room : ' + roomName);
+        callback(null, room);
+
+    }
+
     return room
+
 }
+
 
 /**
  * Join (conference) call room
@@ -223,6 +233,8 @@ function getRoom(roomName, callback) {
 function join(socket, room, callback) {
     // create user session
     //  User의 socket id로 유저의 세션을 불러옵니다.
+    console.log('-------------------------------------------------------')
+    console.log(room.name)
     var userSession = userRegistry.getById(socket.id);
     userSession.setRoomName(room.name);
 
