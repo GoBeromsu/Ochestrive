@@ -1,6 +1,3 @@
-/**
- * Created by eak on 9/15/15.
- */
 
 /**
  * @param id
@@ -35,6 +32,7 @@ Participant.prototype.offerToReceiveVideo = function (error, offerSdp) {
  * Message to send to server on Ice Candidate.
  * candidate contains 3 items that must be sent for it to work
  * in Internet Explorer/Safari.
+ * Icecandidate의 서버로 보낼 메시지를 생성한다
  * @param candidate
  */
 Participant.prototype.onIceCandidate = function (candidate) {
