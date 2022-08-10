@@ -207,17 +207,12 @@ function getRoom(roomName, callback) {
             participants: {},
             kurentoClient: kurentoClient
         };
-
         rooms[roomName] = room;
-        callback(null, room);
-
     }
-
     else {
         console.log('get existing room : ' + roomName);
-        callback(null, room);
-
     }
+    callback(null, room);
 
     return room
 
@@ -233,8 +228,7 @@ function getRoom(roomName, callback) {
 function join(socket, room, callback) {
     // create user session
     //  User의 socket id로 유저의 세션을 불러옵니다.
-    console.log('-------------------------------------------------------')
-    console.log(room.name)
+
     var userSession = userRegistry.getById(socket.id);
     userSession.setRoomName(room.name);
 
@@ -252,15 +246,10 @@ function join(socket, room, callback) {
     // outgoingMedia.setMaxVideoRecvBandwidth(200);
     // outgoingMedia.setMinVideoRecvBandwidth(200);
     userSession.outgoingMedia = outgoingMedia;
-    // add ice candidate the get sent before endpoint is established
-    var iceCandidateQueue = userSession.iceCandidateQueue[socket.id];
-    if (iceCandidateQueue) {
-        while (iceCandidateQueue.length) {
-            var message = iceCandidateQueue.shift();
-            console.error('user : ' + userSession.id + ' collect candidate for outgoing media');
-            userSession.outgoingMedia.addIceCandidate(message.candidate);
-        }
-    }
+    // 엔드 포인트 만들어지기 전에 생긴 candidate를 처리한다
+    getIcecandidateBeforeEstablished(userSession,socket)
+
+    // candidate : IP 주소와 포트 넘버의 조합으로 표시된 주소
 
     userSession.outgoingMedia.on('OnIceCandidate', function (event) {
         console.log("generate outgoing candidate : " + userSession.id);
@@ -273,8 +262,8 @@ function join(socket, room, callback) {
     });
 
     // notify other user that new user is joining
-    var usersInRoom = room.participants;
-    var data = {
+    const usersInRoom = room.participants;// 방 안의 유저들을 불러온다
+    const data = {
         id: 'newParticipantArrived',
         new_user_id: userSession.id
     };
@@ -298,18 +287,21 @@ function join(socket, room, callback) {
     // register user to room
     room.participants[userSession.id] = userSession;
 
-    //MP4 has working sound in VLC, not in windows media player,
-    //default mediaProfile is .webm which does have sound but lacks IE support
-    var recorderParams = {
-        mediaProfile: 'MP4',
-        uri: "file:///tmp/file" + userSession.id + ".mp4"
-    };
+}
 
-    room.pipeline.create('RecorderEndpoint', recorderParams, function (error, recorderEndpoint) {
-        userSession.outgoingMedia.recorderEndpoint = recorderEndpoint;
-        outgoingMedia.connect(recorderEndpoint);
-    });
 
+function getIcecandidateBeforeEstablished(userSession,socket) {
+    // add ice candidate the get sent before endpoint is established
+    // candidate가 어떻게 생성되는지 알면 해결할 수 있을 듯
+    var iceCandidateQueue = userSession.iceCandidateQueue[socket.id];
+    if (iceCandidateQueue) {
+        while (iceCandidateQueue.length) {
+            var message = iceCandidateQueue.shift();
+            console.error('user : ' + userSession.id + ' collect candidate for outgoing media');
+            console.log('icecandidate per message : ' + message)
+            userSession.outgoingMedia.addIceCandidate(message.candidate);
+        }
+    }
 
 }
 
@@ -556,71 +548,6 @@ function getKurentoClient(callback) {
     });
 }
 
-/**
- * Start recording room
- */
-function startRecord(socket) {
-    var userSession = userRegistry.getById(socket.id);
-
-    if (!userSession) {
-        return;
-    }
-
-    var room = rooms[userSession.roomName];
-
-    if (!room) {
-        return;
-    }
-
-    var usersInRoom = room.participants;
-
-    var data = {
-        id: 'startRecording'
-    };
-
-    for (var i in usersInRoom) {
-        var user = usersInRoom[i];
-        // release viewer from this
-        user.outgoingMedia.recorderEndpoint.record()
-
-        // notify all user in the room
-        user.sendMessage(data);
-        console.log(user.id);
-    }
-}
-
-/**
- * Stop recording room
- */
-function stopRecord(socket) {
-    var userSession = userRegistry.getById(socket.id);
-
-    if (!userSession) {
-        return;
-    }
-
-    var room = rooms[userSession.roomName];
-
-    if (!room) {
-        return;
-    }
-
-    var usersInRoom = room.participants;
-
-    var data = {
-        id: 'stopRecording'
-    };
-
-    for (var i in usersInRoom) {
-        var user = usersInRoom[i];
-        // release viewer from this
-        user.outgoingMedia.recorderEndpoint.stop()
-
-        // notify all user in the room
-        user.sendMessage(data);
-        console.log(user.id);
-    }
-}
 
 /**
  * Generate unique ID, used for generating new rooms
