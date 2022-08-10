@@ -96,14 +96,10 @@ io.on('connection', function (socket) {
 
         switch (message.id) {
             case 'register':
-                /** 
-                 * Client로부터 온 Register에 대한 응답
-                */
+                // 클라이언트 측의 Register로부터 온 Code임
                 console.log('Server : Register ' + socket.id);
                 register(socket, message.name, function () {
-
                 });
-
                 break;
             case 'joinRoom':
                 console.log('Server : ' + socket.id + ' joinRoom : ' + message.roomName);
@@ -120,18 +116,6 @@ io.on('connection', function (socket) {
             case 'leaveRoom':
                 console.log(socket.id + ' leaveRoom');
                 leaveRoom(socket.id);
-                break;
-            case 'call':
-                console.log("Calling");
-                call(socket.id, message.to, message.from);
-                break;
-            case "startRecording":
-                console.log("Starting recording");
-                startRecord(socket);
-                break;
-            case "stopRecording":
-                console.log("Stopped recording");
-                stopRecord(socket);
                 break;
             case 'onIceCandidate':
                 addIceCandidate(socket, message);
@@ -247,7 +231,7 @@ function join(socket, room, callback) {
     // outgoingMedia.setMinVideoRecvBandwidth(200);
     userSession.outgoingMedia = outgoingMedia;
     // 엔드 포인트 만들어지기 전에 생긴 candidate를 처리한다
-    getIcecandidateBeforeEstablished(userSession,socket)
+    getIcecandidateBeforeEstablished(userSession, socket)
 
     // candidate : IP 주소와 포트 넘버의 조합으로 표시된 주소
 
@@ -262,6 +246,7 @@ function join(socket, room, callback) {
     });
 
     // notify other user that new user is joining
+    // 
     const usersInRoom = room.participants;// 방 안의 유저들을 불러온다
     const data = {
         id: 'newParticipantArrived',
@@ -290,7 +275,7 @@ function join(socket, room, callback) {
 }
 
 
-function getIcecandidateBeforeEstablished(userSession,socket) {
+function getIcecandidateBeforeEstablished(userSession, socket) {
     // add ice candidate the get sent before endpoint is established
     // candidate가 어떻게 생성되는지 알면 해결할 수 있을 듯
     var iceCandidateQueue = userSession.iceCandidateQueue[socket.id];

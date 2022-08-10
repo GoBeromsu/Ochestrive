@@ -24,14 +24,7 @@ socket.on("message", function (message) {
         case "registered":
             disableElements("register");
             console.log(message.data);
-            break;
-        case "incomingCall":
-            incomingCall(message);
-            break;
-        case "callResponse":
-            console.log(message);
-            console.log(message.message);
-            break;
+            break
         case "existingParticipants":
             console.log("existingParticipants : " + message.data);
             onExistingParticipants(message);
@@ -116,20 +109,6 @@ function joinRoom() {
 }
 
 /**
- * Invite other user to a conference call
- */
-function call() {
-    // Not currently in a room
-    disableElements("call");
-    var message = {
-        id: 'call',
-        from: document.getElementById('userName').value,
-        to: document.getElementById('otherUserName').value
-    };
-    sendMessage(message);
-}
-
-/**
  * Tell room you're leaving and remove all video elements
  */
 function leaveRoom() {
@@ -149,30 +128,6 @@ function leaveRoom() {
     }
 }
 
-/**
- * Javascript Confirm to see if user accepts invite
- * @param message
- */
-function incomingCall(message) {
-    var joinRoomMessage = message;
-    if (confirm('User ' + message.from
-        + ' is calling you. Do you accept the call?')) {
-        if (Object.keys(participants).length > 0) {
-            leaveRoom();
-        }
-        console.log('message');
-        console.log(message);
-        joinRoom(joinRoomMessage.roomName);
-    } else {
-        var response = {
-            id: 'incomingCallResponse',
-            from: message.from,
-            callResponse: 'reject',
-            message: 'user declined'
-        };
-        sendMessage(response);
-    }
-}
 
 const StandardConstraints = {
     audio: true,
@@ -298,6 +253,7 @@ function registerParticipant(sender) {
  * @param message
  */
 function onNewParticipant(message) {
+    // 새로운 참가자가 왔는데 그냥 스트림 보낼 공간만 만들고 빠진다고? 굳이?
     receiveVideoFrom(message.new_user_id)
 }
 
@@ -342,9 +298,9 @@ function onReceiveVideoAnswer(message) {
 
 
 /**
- * Create video DOM element
  * @param participant
  * @returns {Element}
+ * 유저의 영상 스트림을 내보낼 공간을 만든다
  */
 function createVideoForParticipant(participant) {
 
