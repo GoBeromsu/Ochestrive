@@ -149,9 +149,9 @@ const mandatoryConstraints = {
     video: {
         mandatory: {
             minWidth: 32,
-            maxWidth: 320,
+            maxWidth: 640,
             minHeight: 32,
-            maxHeight: 320,
+            maxHeight: 640,
             maxFrameRate: 30,
             minFrameRate: 1
         }
@@ -165,7 +165,7 @@ const mandatoryConstraints = {
  */
 function onExistingParticipants(message) {
     // set constraints
-    const constraints = mandatoryConstraints
+    const constraints = StandardConstraints
 
     console.log(sessionId + " register in room " + message.roomName);
 

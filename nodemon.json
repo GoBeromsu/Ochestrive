@@ -1,3 +1,3 @@
 {
-	"exec": "babel-node BackEnd/server.js"
+	"exec": "babel-node server.js"
 }
