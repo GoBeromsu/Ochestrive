@@ -18,22 +18,27 @@
 	</head>
 	<body>
 		<h1>Ochestrive Group Call</h1>
-
-		<div class="container" id="container">
+		
+		<div class="container" id="container" >
 			<video
 				id="local_video"
 				autoplay
 				style="width: 320px; height: 320px"
 				poster="img/webrtc.png"
 			></video>
+	
+		</div>
+		<div  style="float:left;">
 			<input
-				type="text"
-				name="userName"
-				value=""
-				id="userName"
-				placeholder="Username"
+			type="text"
+			name="userName"
+			value=""
+			id="userName"
+			placeholder="Username"
 			/>
-			<button id="register" onClick="register()">Register</button> <br />
+			<button id="register" onClick="register()">Register</button> 
+		</div>
+		<div style="float:left;">
 			<input
 				type="text"
 				disabled="disabled"
@@ -43,33 +48,19 @@
 				placeholder="Room"
 			/>
 			<button id="joinRoom" disabled="disabled" onClick="joinRoom()">
-				Join Room</button
-			><br />
-			<input
-				type="text"
-				disabled="disabled"
-				name="otherUserName"
-				value=""
-				id="otherUserName"
-				placeholder="Other registered username"
-			/>
-			<!-- <button id="sendInvite" disabled="disabled" onClick="call()">
-				Send invite</button
-			><br /> -->
-			<!-- <button
-				id="startRecording"
-				disabled="disabled"
-				onClick="startRecording()"
-			>
-				Start recording
-			</button>
-			<button id="stopRecording" disabled="disabled" onClick="stopRecording()">
-				Stop recording</button
-			><br /> -->
-			<button id="leaveRoom" disabled="disabled" onClick="leaveRoom()">
-				Leave room
-			</button>
-			<div id="video_list"></div>
+				Join Room</button>
 		</div>
+		<input
+			type="text"
+			disabled="disabled"
+			name="otherUserName"
+			value=""
+			id="otherUserName"
+			placeholder="Other registered username"
+		/>
+		<button id="leaveRoom" disabled="disabled" onClick="leaveRoom()">
+			Leave room
+		</button>
+		<div id="video_list" ></div>
 	</body>
 </html>

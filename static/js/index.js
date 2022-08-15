@@ -2,12 +2,12 @@
  * Created by eak on 9/14/15.
  */
 
-var socket = io.connect();
-var localVideoCurrentId;
-var localVideo;
-var sessionId;
+let socket = io.connect();
+let localVideoCurrentId;
+let localVideo;
+let sessionId;
 
-var participants = {};
+let participants = {};
 
 window.onbeforeunload = function () {
     socket.disconnect();
@@ -24,14 +24,7 @@ socket.on("message", function (message) {
         case "registered":
             disableElements("register");
             console.log(message.data);
-            break;
-        case "incomingCall":
-            incomingCall(message);
-            break;
-        case "callResponse":
-            console.log(message);
-            console.log(message.message);
-            break;
+            break
         case "existingParticipants":
             console.log("existingParticipants : " + message.data);
             onExistingParticipants(message);
@@ -48,15 +41,11 @@ socket.on("message", function (message) {
             console.log("receiveVideoAnswer from : " + message.sessionId);
             onReceiveVideoAnswer(message);
             break;
-        case "startRecording":
-            console.log("Starting recording");
-            break;
-        case "stopRecording":
-            console.log("Stopped recording");
-            break;
         case "iceCandidate":
-            console.log("iceCandidate from : " + message.sessionId);
-            var participant = participants[message.sessionId];
+            //participants에 이미 넣어져 있음 
+            // Join Room에서 부를 때는 일종의 예외 처리임, participants가 없다
+            let participant = participants[message.sessionId];
+            console.log(participant)
             if (participant != null) {
                 console.log(message.candidate);
                 participant.rtcPeer.addIceCandidate(message.candidate, function (error) {
@@ -120,20 +109,6 @@ function joinRoom() {
 }
 
 /**
- * Invite other user to a conference call
- */
-function call() {
-    // Not currently in a room
-    disableElements("call");
-    var message = {
-        id: 'call',
-        from: document.getElementById('userName').value,
-        to: document.getElementById('otherUserName').value
-    };
-    sendMessage(message);
-}
-
-/**
  * Tell room you're leaving and remove all video elements
  */
 function leaveRoom() {
@@ -153,83 +128,72 @@ function leaveRoom() {
     }
 }
 
-/**
- * Javascript Confirm to see if user accepts invite
- * @param message
- */
-function incomingCall(message) {
-    var joinRoomMessage = message;
-    if (confirm('User ' + message.from
-        + ' is calling you. Do you accept the call?')) {
-        if (Object.keys(participants).length > 0) {
-            leaveRoom();
+
+const StandardConstraints = {
+    audio: true,
+    video: {
+        frameRate: {
+            min: 1, ideal: 15, max: 30
+        },
+        width: {
+            min: 32, ideal: 50, max: 320
+        },
+        height: {
+            min: 32, ideal: 50, max: 320
         }
-        console.log('message');
-        console.log(message);
-        joinRoom(joinRoomMessage.roomName);
-    } else {
-        var response = {
-            id: 'incomingCallResponse',
-            from: message.from,
-            callResponse: 'reject',
-            message: 'user declined'
-        };
-        sendMessage(response);
+    }
+}
+
+const mandatoryConstraints = {
+    audio: true,
+    video: {
+        mandatory: {
+            minWidth: 32,
+            maxWidth: 320,
+            minHeight: 32,
+            maxHeight: 320,
+            maxFrameRate: 30,
+            minFrameRate: 1
+        }
     }
 }
 
 /**
  * Request video from all existing participants
+ * 현재 유저의 로컬 비디오 영상 제작 및 기존 방에 들어와 있던 유저들 출력
  * @param message
  */
 function onExistingParticipants(message) {
-    // Standard constraints
-    var constraints = {
-        audio: true,
-        video: {
-            frameRate: {
-                min: 1, ideal: 15, max: 30
-            },
-            width: {
-                min: 32, ideal: 50, max: 320
-            },
-            height: {
-                min: 32, ideal: 50, max: 320
-            }
-        }
-    };
-
-    // Temasys constraints
-    /*var constraints = {
-     audio: true,
-         video: {
-             mandatory: {
-                 minWidth: 32,
-                 maxWidth: 320,
-                 minHeight: 32,
-                 maxHeight: 320,
-                 maxFrameRate: 30,
-                 minFrameRate: 1
-             }
-         }
-     };*/
+    // set constraints
+    const constraints = mandatoryConstraints
 
     console.log(sessionId + " register in room " + message.roomName);
 
     // create video for current user to send to server
-    var localParticipant = new Participant(sessionId);
+    const localParticipant = new Participant(sessionId);
+    setLocalParticipantVideo(constraints, localParticipant)
+
+    // get access to video from all the participants
+    // 기존에 방에 들어와 있던 유저들을 추가합니다.
+    console.log(message.data);
+    for (var i in message.data) {
+        receiveVideoFrom(message.data[i]);
+    }
+}
+// 유저의 로컬 비디오 영상 스트림 생성 및 배포
+function setLocalParticipantVideo(constraints, localParticipant) {
     participants[sessionId] = localParticipant;
     localVideo = document.getElementById("local_video");
-    var video = localVideo;
+    const video = localVideo;
 
     // bind function so that calling 'this' in that function will receive the current instance
-    var options = {
+    const options = {
         localVideo: video,
         mediaConstraints: constraints,
         onicecandidate: localParticipant.onIceCandidate.bind(localParticipant)
     };
 
-
+    //RTC Peer를 통해서 Data에 접근할 수 있겠고만
     localParticipant.rtcPeer = new kurentoUtils.WebRtcPeer.WebRtcPeerSendonly(options, function (error) {
         if (error) {
             return console.error(error);
@@ -239,51 +203,57 @@ function onExistingParticipants(message) {
         localVideo = document.getElementById("local_video");
 
         // initial main video to local first
+        // Stream 제어 기능
         localVideoCurrentId = sessionId;
         localVideo.src = localParticipant.rtcPeer.localVideo.src;
         localVideo.muted = true;
 
         console.log("local participant id : " + sessionId);
-        this.generateOffer(localParticipant.offerToReceiveVideo.bind(localParticipant));
+        this.generateOffer(localParticipant.offerToReceiveVideo.bind(localParticipant));//SDP 생성
     });
-
-    // get access to video from all the participants
-    console.log(message.data);
-    for (var i in message.data) {
-        receiveVideoFrom(message.data[i]);
-    }
 }
+
 
 /**
  * Add new participant locally and request video from new participant
+ * 새로운 참가자를 클라이언트에게 등록, 새로운 참가자에게 비디오 요청
  * @param sender
  */
 function receiveVideoFrom(sender) {
     console.log(sessionId + " receive video from " + sender);
-    var participant = new Participant(sender);
-    participants[sender] = participant;
+    const participant = registerParticipant(sender)
 
-    var video = createVideoForParticipant(participant);
+    var video = createVideoForParticipant(participant);//비디오가 들어갈 공간을 부여합니다.
 
     // bind function so that calling 'this' in that function will receive the current instance
     var options = {
-        remoteVideo: video,
-        onicecandidate: participant.onIceCandidate.bind(participant)
+        remoteVideo: video,//새로운 참여자의 화면인 remote 비디오 stream이 들어갈 공간
+        onicecandidate: participant.onIceCandidate.bind(participant)// 새로운 참가자의 icecandidate
     };
-
+    //WebRtcPeerRecvonly : WebRtcPeer as receive only.
     participant.rtcPeer = new kurentoUtils.WebRtcPeer.WebRtcPeerRecvonly(options, function (error) {
         if (error) {
             return console.error(error);
         }
-        this.generateOffer(participant.offerToReceiveVideo.bind(participant));
+        this.generateOffer(participant.offerToReceiveVideo.bind(participant));//SDP 생성
     });
 }
+
+// 클라이언트에게 참여자를 등록하는 함수
+function registerParticipant(sender) {
+    const participant = new Participant(sender);
+    participants[sender] = participant;
+    return participant
+}
+
+
 
 /**
  * Receive video from new participant
  * @param message
  */
 function onNewParticipant(message) {
+    // 새로운 참가자가 왔는데 그냥 스트림 보낼 공간만 만들고 빠진다고? 굳이?
     receiveVideoFrom(message.new_user_id)
 }
 
@@ -325,30 +295,12 @@ function onReceiveVideoAnswer(message) {
     });
 }
 
-/**
- * Start recording video
- */
-function startRecording() {
-    var data = {
-        id: "startRecording"
-    };
-    sendMessage(data);
-}
+
 
 /**
- * Stop recording video
- */
-function stopRecording() {
-    var data = {
-        id: "stopRecording"
-    };
-    sendMessage(data);
-}
-
-/**
- * Create video DOM element
  * @param participant
  * @returns {Element}
+ * 유저의 영상 스트림을 내보낼 공간을 만든다
  */
 function createVideoForParticipant(participant) {
 
@@ -370,26 +322,24 @@ function disableElements(functionName) {
         document.getElementById('register').disabled = true;
         document.getElementById('joinRoom').disabled = false;
         document.getElementById('roomName').disabled = false;
-        document.getElementById('sendInvite').disabled = false;
+
         document.getElementById('otherUserName').disabled = false;
     }
     if (functionName === "joinRoom") {
         document.getElementById('roomName').disabled = true;
         document.getElementById('joinRoom').disabled = true;
-        document.getElementById('sendInvite').disabled = false;
+
         document.getElementById('otherUserName').disabled = false;
         document.getElementById('leaveRoom').disabled = false;
-        document.getElementById('startRecording').disabled = false;
-        document.getElementById('stopRecording').disabled = false;
+
     }
     if (functionName === "leaveRoom") {
         document.getElementById('leaveRoom').disabled = true;
         document.getElementById('roomName').disabled = false;
         document.getElementById('joinRoom').disabled = false;
-        document.getElementById('sendInvite').disabled = false;
+
         document.getElementById('otherUserName').disabled = false;
-        document.getElementById('startRecording').disabled = true;
-        document.getElementById('stopRecording').disabled = true;
+
     }
     if (functionName === "call") {
         document.getElementById('roomName').disabled = true;
