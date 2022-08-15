@@ -200,13 +200,15 @@ function setLocalParticipantVideo(constraints, localParticipant) {
         }
 
         // Set localVideo to new object if on IE/Safari
-        localVideo = document.getElementById("local_video");
+        //localVideo = document.getElementById("local_video");
 
         // initial main video to local first
         // Stream 제어 기능
         localVideoCurrentId = sessionId;
         localVideo.src = localParticipant.rtcPeer.localVideo.src;
-        localVideo.muted = true;
+        //localVideo.muted = false;
+        audioEnabled = true;
+        //WebRtcPeer.videoEnabled = true;
 
         console.log("local participant id : " + sessionId);
         this.generateOffer(localParticipant.offerToReceiveVideo.bind(localParticipant));//SDP 생성
@@ -315,6 +317,8 @@ function createVideoForParticipant(participant) {
     // return video element
     return document.getElementById(videoId);
 }
+
+
 
 function disableElements(functionName) {
     if (functionName === "register") {
