@@ -1,13 +1,89 @@
-/**
- * Created by eak on 9/14/15.
- */
+const localVideo = document.getElementById("local_video");
+const camerasSelect = document.getElementById("cameras");
 
+const audioSelect = document.getElementById("audios");
+
+let myStream
 let socket = io.connect();
 let localVideoCurrentId;
-let localVideo;
 let sessionId;
-
 let participants = {};
+
+async function getCameras() {
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        // console.log(devices)
+        const cameras = devices.filter((device) => device.kind === "videoinput");
+        // console.log(cameras)
+        const currentCamera = myStream.getVideoTracks()[0];
+
+        cameras.forEach((camera) => {
+            const option = document.createElement("option");
+            option.value = camera.deviceId;
+            option.innerText = camera.label;
+            if (currentCamera.label === camera.label) {
+                option.selected = true;
+            }
+            camerasSelect.appendChild(option);
+        })
+
+    }
+    catch (e) {
+        console.log(e)
+    }
+}
+async function getAudios() {
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        // console.log(devices)
+        const audios = devices.filter((device) => device.kind === "audioinput");
+        console.log(audios)
+
+        audios.forEach((audio) => {
+            const option = document.createElement("option");
+            option.value = audio.deviceId;
+            option.innerText = audio.label;
+
+            audioSelect.appendChild(option);
+        })
+
+    }
+    catch (e) {
+        console.log(e)
+    }
+}
+
+
+async function getMedia(deviceId) {
+    const initialConstraint = {
+        audio: true,
+        video: { deviceId: { exact: deviceId } }
+    }
+    const cameraConstraints = {
+        audio: true,
+        video: { deviceId: { exact: deviceId } },
+    };
+
+    try {
+        myStream = await navigator.mediaDevices.getUserMedia(deviceId ? cameraConstraints : initialConstraint);
+        console.log(myStream)
+        localVideo.srcObject = myStream;
+
+        if (!deviceId) {
+            await getCameras();
+            await getAudios();
+        }
+
+    }
+    catch (e) {
+        console.log(e)
+    }
+
+}
+
+
+
+
 
 window.onbeforeunload = function () {
     socket.disconnect();
@@ -16,6 +92,8 @@ window.onbeforeunload = function () {
 socket.on("id", function (id) {
     console.log("receive id : " + id);
     sessionId = id;
+
+
 });
 
 // message handler
@@ -79,13 +157,15 @@ function sendMessage(data) {
  * 유저 이름 정보를 등록하는 함수 
  * 가장 먼저 실행된다.
  */
-function register() {
+
+async function register() {
     console.log('Client : Register user name')
     var data = {
         id: "register",
         name: document.getElementById('userName').value
     };
     sendMessage(data);
+    await getMedia();
 }
 
 /**
@@ -183,7 +263,7 @@ function onExistingParticipants(message) {
 // 유저의 로컬 비디오 영상 스트림 생성 및 배포
 function setLocalParticipantVideo(constraints, localParticipant) {
     participants[sessionId] = localParticipant;
-    localVideo = document.getElementById("local_video");
+
     const video = localVideo;
 
     // bind function so that calling 'this' in that function will receive the current instance
@@ -200,7 +280,7 @@ function setLocalParticipantVideo(constraints, localParticipant) {
         }
 
         // Set localVideo to new object if on IE/Safari
-        localVideo = document.getElementById("local_video");
+
 
         // initial main video to local first
         // Stream 제어 기능

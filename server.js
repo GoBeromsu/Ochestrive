@@ -1,17 +1,3 @@
-/*
- * (C) Copyright 2014 Kurento (http://kurento.org/)
- *
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the GNU Lesser General Public License
- * (LGPL) version 2.1 which accompanies this distribution, and is available at
- * http://www.gnu.org/licenses/lgpl-2.1.html
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- */
 
 
 var UserRegistry = require('./user-registry.js');
@@ -347,49 +333,6 @@ function leaveRoom(sessionId, callback) {
  */
 function stop(sessionId) {
     userRegistry.unregister(sessionId);
-}
-
-/**
- * Invite other user to a (conference) call
- * @param callerId
- * @param to
- * @param from
- */
-function call(callerId, to, from) {
-    if (to === from) {
-        return;
-    }
-    var roomName;
-    var caller = userRegistry.getById(callerId);
-    var rejectCause = 'User ' + to + ' is not registered';
-    if (userRegistry.getByName(to)) {
-        var callee = userRegistry.getByName(to);
-        if (!caller.roomName) {
-            roomName = generateUUID();
-            joinRoom(caller.socket, roomName);
-        }
-        else {
-            roomName = caller.roomName;
-        }
-        callee.peer = from;
-        caller.peer = to;
-        var message = {
-            id: 'incomingCall',
-            from: from,
-            roomName: roomName
-        };
-        try {
-            return callee.sendMessage(message);
-        } catch (exception) {
-            rejectCause = "Error " + exception;
-        }
-    }
-    var message = {
-        id: 'callResponse',
-        response: 'rejected: ',
-        message: rejectCause
-    };
-    caller.sendMessage(message);
 }
 
 /**
