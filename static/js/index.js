@@ -2,13 +2,21 @@ const localVideo = document.getElementById("local_video");
 const camerasSelect = document.getElementById("cameras");
 
 const audioSelect = document.getElementById("audios");
+const muteBtn = document.getElementById("mute");
+const cameraBtn = document.getElementById("camera");
+
 
 let myStream
+let muted = false;
+let cameraOff = false;
 let socket = io.connect();
 let localVideoCurrentId;
 let sessionId;
 let participants = {};
+let localParticipant //로컬 참여자 : Peer Connection 저장하는 곳
 
+
+// 카메라를 가져옵니다.
 async function getCameras() {
     try {
         const devices = await navigator.mediaDevices.enumerateDevices();
@@ -32,6 +40,8 @@ async function getCameras() {
         console.log(e)
     }
 }
+
+// 오디오를 가져옵니다.
 async function getAudios() {
     try {
         const devices = await navigator.mediaDevices.enumerateDevices();
@@ -81,8 +91,47 @@ async function getMedia(deviceId) {
 
 }
 
+function handleMuteClick() {
+    myStream
+        .getAudioTracks()
+        .forEach((track) => (track.enabled = !track.enabled));
+    if (!muted) {
+        muteBtn.innerText = "Unmute";
+        muted = true;
+    } else {
+        muteBtn.innerText = "Mute";
+        muted = false;
+    }
+}
+function handleCameraClick() {
+    myStream
+        .getVideoTracks()
+        .forEach((track) => (track.enabled = !track.enabled));
+    if (cameraOff) {
+        cameraBtn.innerText = "Turn Camera Off";
+        cameraOff = false;
+    } else {
+        cameraBtn.innerText = "Turn Camera On";
+        cameraOff = true;
+    }
+}
 
 
+// 공부 필요함
+async function handleCameraChange() {
+    await getMedia(camerasSelect.value);
+    if (localParticipant.src) {
+        const videoTrack = myStream.getVideoTracks()[0];
+        const videoSender = localParticipant.src
+            .getSenders()
+            .find((sender) => sender.track.kind === "video");
+        videoSender.replaceTrack(videoTrack);
+    }
+}
+
+muteBtn.addEventListener("click", handleMuteClick);
+cameraBtn.addEventListener("click", handleCameraClick);
+camerasSelect.addEventListener("input", handleCameraChange);
 
 
 window.onbeforeunload = function () {
@@ -250,8 +299,8 @@ function onExistingParticipants(message) {
     console.log(sessionId + " register in room " + message.roomName);
 
     // create video for current user to send to server
-    const localParticipant = new Participant(sessionId);
-    setLocalParticipantVideo(constraints, localParticipant)
+
+    setLocalParticipantVideo(constraints, sessionId)
 
     // get access to video from all the participants
     // 기존에 방에 들어와 있던 유저들을 추가합니다.
@@ -261,7 +310,8 @@ function onExistingParticipants(message) {
     }
 }
 // 유저의 로컬 비디오 영상 스트림 생성 및 배포
-function setLocalParticipantVideo(constraints, localParticipant) {
+function setLocalParticipantVideo(constraints, sessionId) {
+    localParticipant = new Participant(sessionId);
     participants[sessionId] = localParticipant;
 
     const video = localVideo;
