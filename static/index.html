@@ -12,27 +12,27 @@
     <script src="bower_components/kurento-utils-temasys/dist/kurento-utils.js"></script>-->
 
 		<script src="/socket.io/socket.io.js"></script>
-		<script src="js/index.js"></script>
+
 		<script src="js/participants.js"></script>
 		<title>Ochestrive Group Call</title>
 	</head>
 	<body>
 		<h1>Ochestrive Group Call</h1>
 		
-		<div class="container" id="container" >
+		<div id="myStream" >
 			<video
 				id="local_video"
 				autoplay
 				style="width: 320px; height: 320px"
 				poster="img/webrtc.png"
 			></video>
-<<<<<<< Updated upstream
-	
+			<button id="mute">소리off</button>
+			<button id="camera">카메라off</button>
+			<select id="cameras"></select>
+			<select id="audios"></select>
+
 		</div>
 		<div  style="float:left;">
-=======
-
->>>>>>> Stashed changes
 			<input
 			type="text"
 			name="userName"
@@ -40,16 +40,9 @@
 			id="userName"
 			placeholder="Username"
 			/>
-<<<<<<< Updated upstream
 			<button id="register" onClick="register()">Register</button> 
 		</div>
 		<div style="float:left;">
-=======
-			<button id="register" onClick="register()">
-				Register
-			</button> <br />
-
->>>>>>> Stashed changes
 			<input
 				type="text"
 				disabled="disabled"
@@ -59,37 +52,7 @@
 				placeholder="Room"
 			/>
 			<button id="joinRoom" disabled="disabled" onClick="joinRoom()">
-<<<<<<< Updated upstream
 				Join Room</button>
-=======
-				Join Room
-			</button><br />
-
-			<input
-				type="text"
-				disabled="disabled"
-				name="otherUserName"
-				value=""
-				id="otherUserName"
-				placeholder="Other registered username"
-			/>
-
-			<button id="sendInvite" disabled="disabled" onClick="call()">
-				Send invite
-			</button><br />
-			<button id="startRecording" disabled="disabled" onClick="startRecording()">
-				Start recording
-			</button>
-			<button id="stopRecording" disabled="disabled" onClick="stopRecording()">
-				Stop recording
-			</button><br />
-
-			<button id="leaveRoom" disabled="disabled" onClick="leaveRoom()">
-				Leave room
-			</button>
-
-			<div id="video_list"></div>
->>>>>>> Stashed changes
 		</div>
 		<input
 			type="text"
@@ -104,4 +67,5 @@
 		</button>
 		<div id="video_list" ></div>
 	</body>
+	<script src="js/index.js"></script>
 </html>

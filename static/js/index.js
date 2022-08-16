@@ -1,13 +1,130 @@
-/**
- * Created by eak on 9/14/15.
- */
+const localVideo = document.getElementById("local_video");
+
+const camerasSelect = document.getElementById("cameras");
+const audioSelect = document.getElementById("audios");
+const muteBtn = document.getElementById("mute"); //음소거 버튼
+const cameraBtn = document.getElementById("camera"); //카메라 버튼
+
+let myStream;
+let muted = false; //초기상태
+let cameraOff = false;
 
 let socket = io.connect();
 let localVideoCurrentId;
-let localVideo;
 let sessionId;
-
 let participants = {};
+
+async function getCameras() {
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        // console.log(devices)
+        const cameras = devices.filter((device) => device.kind === "videoinput");
+        // console.log(cameras)
+        const currentCamera = myStream.getVideoTracks()[0];
+
+        cameras.forEach((camera) => {
+            const option = document.createElement("option");
+            option.value = camera.deviceId;
+            option.innerText = camera.label;
+            if (currentCamera.label === camera.label) {
+                option.selected = true;
+            }
+            camerasSelect.appendChild(option);
+        })
+
+    }
+    catch (e) {
+        console.log(e)
+    }
+}
+async function getAudios() {
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        // console.log(devices)
+        const audios = devices.filter((device) => device.kind === "audioinput");
+        console.log(audios)
+
+        audios.forEach((audio) => {
+            const option = document.createElement("option");
+            option.value = audio.deviceId;
+            option.innerText = audio.label;
+
+            audioSelect.appendChild(option);
+        })
+
+    }
+    catch (e) {
+        console.log(e)
+    }
+}
+async function getMedia(deviceId) {
+    const initialConstraint = {
+        audio: true,
+        video: { deviceId: { exact: deviceId } }
+    }
+    const cameraConstraints = {
+        audio: true,
+        video: { deviceId: { exact: deviceId } },
+    };
+
+    try {
+        myStream = await navigator.mediaDevices.getUserMedia(deviceId ? cameraConstraints : initialConstraint);
+        console.log(myStream)
+        localVideo.srcObject = myStream;
+
+        if (!deviceId) {
+            await getCameras();
+            await getAudios();
+        }
+    }
+    catch (e) {
+        console.log(e)
+    }
+}
+
+function handleMuteClick() {
+    myStream
+      .getAudioTracks()
+      .forEach((track) => (track.enabled = !track.enabled)); //값 반전시키기
+    if (!muted) {
+      //음소거 아니면
+      muteBtn.innerText = "소리off";
+      muted = true;
+    } else {
+      muteBtn.innerText = "소리on";
+      muted = false;
+    }
+  }
+  
+  function handleCameraClick() {
+    myStream
+      .getVideoTracks()
+      .forEach((track) => (track.enabled = !track.enabled)); //값 반전시키기
+    if (cameraOff) {
+      //카메라 켜져있으면
+      cameraBtn.innerText = "카메라off";
+      cameraOff = false;
+    } else {
+      cameraBtn.innerText = "카메라on";
+      cameraOff = true;
+    }
+  }
+  async function handleCameraChange() {
+    await getMedia(camerasSelect.value); //stream 새로 받음
+    if (myPeerConnection) { //myPeerConnection을 여기에 맞는걸로 바꿔야함
+      const videoTrack = myStream.getVideoTracks()[0];
+      const videoSender = myPeerConnection
+        .getSenders()
+        .find((sender) => sender.track.kind === "video");
+      videoSender.replaceTrack(videoTrack); //새로운 카메라로 바꿔주기
+    }
+  }
+  
+  muteBtn.addEventListener("click", handleMuteClick);
+  cameraBtn.addEventListener("click", handleCameraClick);
+  camerasSelect.addEventListener("input", handleCameraChange);
+
+
 
 window.onbeforeunload = function () {
     socket.disconnect();
@@ -79,13 +196,15 @@ function sendMessage(data) {
  * 유저 이름 정보를 등록하는 함수 
  * 가장 먼저 실행된다.
  */
-function register() {
+
+async function register() {
     console.log('Client : Register user name')
     var data = {
         id: "register",
         name: document.getElementById('userName').value
     };
     sendMessage(data);
+    await getMedia();
 }
 
 /**
@@ -183,7 +302,7 @@ function onExistingParticipants(message) {
 // 유저의 로컬 비디오 영상 스트림 생성 및 배포
 function setLocalParticipantVideo(constraints, localParticipant) {
     participants[sessionId] = localParticipant;
-    localVideo = document.getElementById("local_video");
+
     const video = localVideo;
 
     // bind function so that calling 'this' in that function will receive the current instance
@@ -198,17 +317,11 @@ function setLocalParticipantVideo(constraints, localParticipant) {
         if (error) {
             return console.error(error);
         }
-
-        // Set localVideo to new object if on IE/Safari
-        //localVideo = document.getElementById("local_video");
-
         // initial main video to local first
         // Stream 제어 기능
         localVideoCurrentId = sessionId;
         localVideo.src = localParticipant.rtcPeer.localVideo.src;
-        //localVideo.muted = false;
-        audioEnabled = true;
-        //WebRtcPeer.videoEnabled = true;
+        localVideo.muted = true;
 
         console.log("local participant id : " + sessionId);
         this.generateOffer(localParticipant.offerToReceiveVideo.bind(localParticipant));//SDP 생성
@@ -317,8 +430,6 @@ function createVideoForParticipant(participant) {
     // return video element
     return document.getElementById(videoId);
 }
-
-
 
 function disableElements(functionName) {
     if (functionName === "register") {
