@@ -13,8 +13,36 @@ let socket = io.connect();
 let localVideoCurrentId;
 let sessionId;
 let participants = {};
-let localParticipant //로컬 참여자 : Peer Connection 저장하는 곳
 
+
+const StandardConstraints = {
+    audio: true,
+    video: {
+        frameRate: {
+            min: 1, ideal: 15, max: 30
+        },
+        width: {
+            min: 32, ideal: 50, max: 320
+        },
+        height: {
+            min: 32, ideal: 50, max: 320
+        }
+    }
+}
+
+const mandatoryConstraints = {
+    audio: true,
+    video: {
+        mandatory: {
+            minWidth: 32,
+            maxWidth: 320,
+            minHeight: 32,
+            maxHeight: 320,
+            maxFrameRate: 30,
+            minFrameRate: 1
+        }
+    }
+}
 
 // 카메라를 가져옵니다.
 async function getCameras() {
@@ -98,11 +126,11 @@ function handleMuteClick() {
     if (!muted) {
         muteBtn.innerText = "Unmute";
         muted = true;
-        // localParticipant.rtcPeer.audioEnabled=false
+        participants[sessionId].rtcPeer.audioEnabled=false
     } else {
         muteBtn.innerText = "Mute";
         muted = false;
-        // localParticipant.rtcPeer.audioEnabled=true
+        participants[sessionId].rtcPeer.audioEnabled=true
 
     }
 }
@@ -144,7 +172,7 @@ window.onbeforeunload = function () {
 socket.on("id", function (id) {
     console.log("receive id : " + id);
     sessionId = id;
-    // getMedia();
+    getMedia();
 
 });
 
@@ -261,34 +289,6 @@ function leaveRoom() {
 }
 
 
-const StandardConstraints = {
-    audio: true,
-    video: {
-        frameRate: {
-            min: 1, ideal: 15, max: 30
-        },
-        width: {
-            min: 32, ideal: 50, max: 320
-        },
-        height: {
-            min: 32, ideal: 50, max: 320
-        }
-    }
-}
-
-const mandatoryConstraints = {
-    audio: true,
-    video: {
-        mandatory: {
-            minWidth: 32,
-            maxWidth: 320,
-            minHeight: 32,
-            maxHeight: 320,
-            maxFrameRate: 30,
-            minFrameRate: 1
-        }
-    }
-}
 
 /**
  * Request video from all existing participants
@@ -312,7 +312,7 @@ function onExistingParticipants(message) {
     }
 }
 // 유저의 로컬 비디오 영상 스트림 생성 및 배포
-function setLocalParticipantVideo(constraints) {
+function setLocalParticipantVideo() {
     localParticipant = new Participant(sessionId);
     participants[sessionId] = localParticipant;
 
@@ -320,6 +320,7 @@ function setLocalParticipantVideo(constraints) {
 
     // bind function so that calling 'this' in that function will receive the current instance
     const options = {
+
         localVideo: video,
         mediaConstraints: mandatoryConstraints,
         onicecandidate: localParticipant.onIceCandidate.bind(localParticipant)
@@ -338,12 +339,16 @@ function setLocalParticipantVideo(constraints) {
         // Stream 제어 기능
         localVideoCurrentId = sessionId;
         localVideo.src = localParticipant.rtcPeer.localVideo.src;
-        localVideo.muted = true;
+        localVideo.muted = false;
 
         console.log("local participant id : " + sessionId);
         this.generateOffer(localParticipant.offerToReceiveVideo.bind(localParticipant));//SDP 생성
     });
+
+    // localParticipant.rtcPeer.peerConnection.getLocalStreams()[0].getAudioTracks()[0].enabled = true;
 }
+
+
 
 
 /**
