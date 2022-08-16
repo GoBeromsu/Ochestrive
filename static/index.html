@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+		<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+		<link rel="stylesheet", href="https://unpkg.com/mvp.css"/>
+		<link rel="stylesheet" href="css/kurento.css" />
+		<!-- Standard adapter/kurento-utils -->
+		<script src="bower_components/adapter.js/adapter.js"></script>
+		<script src="bower_components/kurento-utils/js/kurento-utils.js"></script>
+
+		<!-- Temasys adapter/kurento-utils -->
+		<!--<script src="lib/adapterjs/publish/adapter.debug.js"></script>
+    <script src="bower_components/kurento-utils-temasys/dist/kurento-utils.js"></script>-->
+
+		<script src="/socket.io/socket.io.js"></script>
+		<script src="js/index.js"></script>
+		<script src="js/participants.js"></script>
+		<title>Ochestrive Group Call</title>
+	</head>
+	<body>
+		<h1>Ochestrive Group Call</h1>
+
+		<div class="container" id="container">
+			<video
+				id="local_video"
+				autoplay
+				style="width: 320px; height: 320px"
+				poster="img/webrtc.png"
+			></video>
+			<input
+				type="text"
+				name="userName"
+				value=""
+				id="userName"
+				placeholder="Username"
+			/>
+			<button id="register" onClick="register()">Register</button> <br />
+			<input
+				type="text"
+				disabled="disabled"
+				name="room"
+				value=""
+				id="roomName"
+				placeholder="Room"
+			/>
+			<button id="joinRoom" disabled="disabled" onClick="joinRoom()">
+				Join Room</button
+			><br />
+			<input
+				type="text"
+				disabled="disabled"
+				name="otherUserName"
+				value=""
+				id="otherUserName"
+				placeholder="Other registered username"
+			/>
+			<!-- <button id="sendInvite" disabled="disabled" onClick="call()">
+				Send invite</button
+			><br /> -->
+			<!-- <button
+				id="startRecording"
+				disabled="disabled"
+				onClick="startRecording()"
+			>
+				Start recording
+			</button>
+			<button id="stopRecording" disabled="disabled" onClick="stopRecording()">
+				Stop recording</button
+			><br /> -->
+			<button id="leaveRoom" disabled="disabled" onClick="leaveRoom()">
+				Leave room
+			</button>
+			<div id="video_list"></div>
+		</div>
+	</body>
+</html>
