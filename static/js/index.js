@@ -98,9 +98,12 @@ function handleMuteClick() {
     if (!muted) {
         muteBtn.innerText = "Unmute";
         muted = true;
+        // localParticipant.rtcPeer.audioEnabled=false
     } else {
         muteBtn.innerText = "Mute";
         muted = false;
+        // localParticipant.rtcPeer.audioEnabled=true
+
     }
 }
 function handleCameraClick() {
@@ -141,7 +144,7 @@ window.onbeforeunload = function () {
 socket.on("id", function (id) {
     console.log("receive id : " + id);
     sessionId = id;
-
+    // getMedia();
 
 });
 
@@ -214,7 +217,7 @@ async function register() {
         name: document.getElementById('userName').value
     };
     sendMessage(data);
-    await getMedia();
+
 }
 
 /**
@@ -294,13 +297,12 @@ const mandatoryConstraints = {
  */
 function onExistingParticipants(message) {
     // set constraints
-    const constraints = mandatoryConstraints
 
     console.log(sessionId + " register in room " + message.roomName);
 
     // create video for current user to send to server
 
-    setLocalParticipantVideo(constraints, sessionId)
+    setLocalParticipantVideo()
 
     // get access to video from all the participants
     // 기존에 방에 들어와 있던 유저들을 추가합니다.
@@ -310,7 +312,7 @@ function onExistingParticipants(message) {
     }
 }
 // 유저의 로컬 비디오 영상 스트림 생성 및 배포
-function setLocalParticipantVideo(constraints, sessionId) {
+function setLocalParticipantVideo(constraints) {
     localParticipant = new Participant(sessionId);
     participants[sessionId] = localParticipant;
 
@@ -319,7 +321,7 @@ function setLocalParticipantVideo(constraints, sessionId) {
     // bind function so that calling 'this' in that function will receive the current instance
     const options = {
         localVideo: video,
-        mediaConstraints: constraints,
+        mediaConstraints: mandatoryConstraints,
         onicecandidate: localParticipant.onIceCandidate.bind(localParticipant)
     };
 
