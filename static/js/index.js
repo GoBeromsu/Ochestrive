@@ -1,80 +1,142 @@
-/**
- * Created by eak on 9/14/15.
- */
+const localVideo = document.getElementById("local_video");
+const camerasSelect = document.getElementById("cameras");
 
-var socket = io.connect();
-var localVideoCurrentId;
-var localVideo;
-var sessionId;
+const audioSelect = document.getElementById("audios");
 
-var participants = {};
+let myStream;
+let socket = io.connect();
+let localVideoCurrentId;
+let sessionId;
+let participants = {};
+
+async function getCameras() {
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    // console.log(devices)
+    const cameras = devices.filter((device) => device.kind === "videoinput");
+    // console.log(cameras)
+    const currentCamera = myStream.getVideoTracks()[0];
+
+    cameras.forEach((camera) => {
+      const option = document.createElement("option");
+      option.value = camera.deviceId;
+      option.innerText = camera.label;
+      if (currentCamera.label === camera.label) {
+        option.selected = true;
+      }
+      camerasSelect.appendChild(option);
+    });
+  } catch (e) {
+    console.log(e);
+  }
+}
+async function getAudios() {
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    // console.log(devices)
+    const audios = devices.filter((device) => device.kind === "audioinput");
+    console.log(audios);
+
+    audios.forEach((audio) => {
+      const option = document.createElement("option");
+      option.value = audio.deviceId;
+      option.innerText = audio.label;
+
+      audioSelect.appendChild(option);
+    });
+  } catch (e) {
+    console.log(e);
+  }
+}
+
+async function getMedia(deviceId) {
+  const initialConstraint = {
+    audio: true,
+    video: { deviceId: { exact: deviceId } },
+  };
+  const cameraConstraints = {
+    audio: true,
+    video: { deviceId: { exact: deviceId } },
+  };
+
+  try {
+    myStream = await navigator.mediaDevices.getUserMedia(
+      deviceId ? cameraConstraints : initialConstraint
+    );
+    console.log(myStream);
+    localVideo.srcObject = myStream;
+
+    if (!deviceId) {
+      await getCameras();
+      await getAudios();
+    }
+  } catch (e) {
+    console.log(e);
+  }
+}
 
 window.onbeforeunload = function () {
-    socket.disconnect();
+  socket.disconnect();
 };
 
 socket.on("id", function (id) {
-    console.log("receive id : " + id);
-    sessionId = id;
+  console.log("receive id : " + id);
+  sessionId = id;
 });
 
 // message handler
 socket.on("message", function (message) {
-    switch (message.id) {
-        case "registered":
-            disableElements("register");
-            console.log(message.data);
-            break;
-        case "incomingCall":
-            incomingCall(message);
-            break;
-        case "callResponse":
-            console.log(message);
-            console.log(message.message);
-            break;
-        case "existingParticipants":
-            console.log("existingParticipants : " + message.data);
-            onExistingParticipants(message);
-            break;
-        case "newParticipantArrived":
-            console.log("newParticipantArrived : " + message.new_user_id);
-            onNewParticipant(message);
-            break;
-        case "participantLeft":
-            console.log("participantLeft : " + message.sessionId);
-            onParticipantLeft(message);
-            break;
-        case "receiveVideoAnswer":
-            console.log("receiveVideoAnswer from : " + message.sessionId);
-            onReceiveVideoAnswer(message);
-            break;
-        case "startRecording":
-            console.log("Starting recording");
-            break;
-        case "stopRecording":
-            console.log("Stopped recording");
-            break;
-        case "iceCandidate":
-            console.log("iceCandidate from : " + message.sessionId);
-            var participant = participants[message.sessionId];
-            if (participant != null) {
-                console.log(message.candidate);
-                participant.rtcPeer.addIceCandidate(message.candidate, function (error) {
-                    if (error) {
-                        if (message.sessionId === sessionId) {
-                            console.error("Error adding candidate to self : " + error);
-                        } else {
-                            console.error("Error adding candidate : " + error);
-                        }
-                    }
-                });
-            } else {
-                console.error('still does not establish rtc peer for : ' + message.sessionId);
+  switch (message.id) {
+    case "registered":
+      disableElements("register");
+      console.log(message.data);
+      // CPU 상태
+      console.log(navigator.hardwareConcurrency);
+      break;
+    case "existingParticipants":
+      console.log("existingParticipants : " + message.data);
+      onExistingParticipants(message);
+      break;
+    case "newParticipantArrived":
+      console.log("newParticipantArrived : " + message.new_user_id);
+      onNewParticipant(message);
+      break;
+    case "participantLeft":
+      console.log("participantLeft : " + message.sessionId);
+      onParticipantLeft(message);
+      break;
+    case "receiveVideoAnswer":
+      console.log("receiveVideoAnswer from : " + message.sessionId);
+      onReceiveVideoAnswer(message);
+      break;
+    case "iceCandidate":
+      //participants에 이미 넣어져 있음
+      // Join Room에서 부를 때는 일종의 예외 처리임, participants가 없다
+      let participant = participants[message.sessionId];
+      console.log(participant);
+      if (participant != null) {
+        console.log(message.candidate);
+        participant.rtcPeer.addIceCandidate(
+          message.candidate,
+          function (error) {
+            if (error) {
+              if (message.sessionId === sessionId) {
+                console.error("Error adding candidate to self : " + error);
+              } else {
+                console.error("Error adding candidate : " + error);
+              }
             }
-            break;
-        default:
-            console.error("Unrecognized message: ", message);
-    }
+          }
+        );
+      } else {
+        console.error(
+          "still does not establish rtc peer for : " + message.sessionId
+        );
+      }
+      break;
+    default:
+      console.error("Unrecognized message: ", message);
+  }
 });
 
 /**
@@ -82,21 +144,23 @@ socket.on("message", function (message) {
  * @param data
  */
 function sendMessage(data) {
-    socket.emit("message", data);
+  socket.emit("message", data);
 }
 
 /**
  * Register to server
- * 유저 이름 정보를 등록하는 함수 
+ * 유저 이름 정보를 등록하는 함수
  * 가장 먼저 실행된다.
  */
-function register() {
-    console.log('Client : Register user name')
-    var data = {
-        id: "register",
-        name: document.getElementById('userName').value
-    };
-    sendMessage(data);
+
+async function register() {
+  console.log("Client : Register user name");
+  var data = {
+    id: "register",
+    name: document.getElementById("userName").value,
+  };
+  sendMessage(data);
+  await getMedia();
 }
 
 /**
@@ -104,179 +168,166 @@ function register() {
  * @param roomName
  */
 function joinRoom() {
-    disableElements('joinRoom');
-    roomName = document.getElementById('roomName').value;
-    if (!roomName) {
-        // 무조건 방을 생성하는 버그 있음
-        alert('방 이름을 입력하시오')
+  disableElements("joinRoom");
+  roomName = document.getElementById("roomName").value;
+  if (!roomName) {
+    // 무조건 방을 생성하는 버그 있음
+    alert("방 이름을 입력하시오");
+  }
 
-    }
-
-    var data = {
-        id: "joinRoom",
-        roomName: roomName
-    };
-    sendMessage(data);
-}
-
-/**
- * Invite other user to a conference call
- */
-function call() {
-    // Not currently in a room
-    disableElements("call");
-    var message = {
-        id: 'call',
-        from: document.getElementById('userName').value,
-        to: document.getElementById('otherUserName').value
-    };
-    sendMessage(message);
+  var data = {
+    id: "joinRoom",
+    roomName: roomName,
+  };
+  sendMessage(data);
 }
 
 /**
  * Tell room you're leaving and remove all video elements
  */
 function leaveRoom() {
+  disableElements("leaveRoom");
+  var message = {
+    id: "leaveRoom",
+  };
 
-    disableElements("leaveRoom");
-    var message = {
-        id: "leaveRoom"
-    };
+  participants[sessionId].rtcPeer.dispose();
+  sendMessage(message);
+  participants = {};
 
-    participants[sessionId].rtcPeer.dispose();
-    sendMessage(message);
-    participants = {};
-
-    var myNode = document.getElementById("video_list");
-    while (myNode.firstChild) {
-        myNode.removeChild(myNode.firstChild);
-    }
+  var myNode = document.getElementById("video_list");
+  while (myNode.firstChild) {
+    myNode.removeChild(myNode.firstChild);
+  }
 }
 
-/**
- * Javascript Confirm to see if user accepts invite
- * @param message
- */
-function incomingCall(message) {
-    var joinRoomMessage = message;
-    if (confirm('User ' + message.from
-        + ' is calling you. Do you accept the call?')) {
-        if (Object.keys(participants).length > 0) {
-            leaveRoom();
-        }
-        console.log('message');
-        console.log(message);
-        joinRoom(joinRoomMessage.roomName);
-    } else {
-        var response = {
-            id: 'incomingCallResponse',
-            from: message.from,
-            callResponse: 'reject',
-            message: 'user declined'
-        };
-        sendMessage(response);
-    }
-}
+const StandardConstraints = {
+  audio: true,
+  video: {
+    frameRate: {
+      min: 1,
+      ideal: 15,
+      max: 30,
+    },
+    width: {
+      min: 32,
+      ideal: 50,
+      max: 320,
+    },
+    height: {
+      min: 32,
+      ideal: 50,
+      max: 320,
+    },
+  },
+};
+
+const mandatoryConstraints = {
+  audio: true,
+  video: {
+    mandatory: {
+      minWidth: 32,
+      maxWidth: 640,
+      minHeight: 32,
+      maxHeight: 640,
+      maxFrameRate: 30,
+      minFrameRate: 1,
+    },
+  },
+};
 
 /**
  * Request video from all existing participants
+ * 현재 유저의 로컬 비디오 영상 제작 및 기존 방에 들어와 있던 유저들 출력
  * @param message
  */
 function onExistingParticipants(message) {
-    // Standard constraints
-    var constraints = {
-        audio: true,
-        video: {
-            frameRate: {
-                min: 1, ideal: 15, max: 30
-            },
-            width: {
-                min: 32, ideal: 50, max: 320
-            },
-            height: {
-                min: 32, ideal: 50, max: 320
-            }
-        }
-    };
+  // set constraints
+  const constraints = StandardConstraints;
 
-    // Temasys constraints
-    /*var constraints = {
-     audio: true,
-         video: {
-             mandatory: {
-                 minWidth: 32,
-                 maxWidth: 320,
-                 minHeight: 32,
-                 maxHeight: 320,
-                 maxFrameRate: 30,
-                 minFrameRate: 1
-             }
-         }
-     };*/
+  console.log(sessionId + " register in room " + message.roomName);
 
-    console.log(sessionId + " register in room " + message.roomName);
+  // create video for current user to send to server
+  const localParticipant = new Participant(sessionId);
+  setLocalParticipantVideo(constraints, localParticipant);
 
-    // create video for current user to send to server
-    var localParticipant = new Participant(sessionId);
-    participants[sessionId] = localParticipant;
-    localVideo = document.getElementById("local_video");
-    var video = localVideo;
+  // get access to video from all the participants
+  // 기존에 방에 들어와 있던 유저들을 추가합니다.
+  console.log(message.data);
+  for (var i in message.data) {
+    receiveVideoFrom(message.data[i]);
+  }
+}
+// 유저의 로컬 비디오 영상 스트림 생성 및 배포
+function setLocalParticipantVideo(constraints, localParticipant) {
+  participants[sessionId] = localParticipant;
 
-    // bind function so that calling 'this' in that function will receive the current instance
-    var options = {
-        localVideo: video,
-        mediaConstraints: constraints,
-        onicecandidate: localParticipant.onIceCandidate.bind(localParticipant)
-    };
+  const video = localVideo;
 
+  // bind function so that calling 'this' in that function will receive the current instance
+  const options = {
+    localVideo: video,
+    mediaConstraints: constraints,
+    onicecandidate: localParticipant.onIceCandidate.bind(localParticipant),
+  };
 
-    localParticipant.rtcPeer = new kurentoUtils.WebRtcPeer.WebRtcPeerSendonly(options, function (error) {
-        if (error) {
-            return console.error(error);
-        }
+  //RTC Peer를 통해서 Data에 접근할 수 있겠고만
+  localParticipant.rtcPeer = new kurentoUtils.WebRtcPeer.WebRtcPeerSendonly(
+    options,
+    function (error) {
+      if (error) {
+        return console.error(error);
+      }
 
-        // Set localVideo to new object if on IE/Safari
-        localVideo = document.getElementById("local_video");
+      // Set localVideo to new object if on IE/Safari
 
-        // initial main video to local first
-        localVideoCurrentId = sessionId;
-        localVideo.src = localParticipant.rtcPeer.localVideo.src;
-        localVideo.muted = true;
+      // initial main video to local first
+      // Stream 제어 기능
+      localVideoCurrentId = sessionId;
+      localVideo.src = localParticipant.rtcPeer.localVideo.src;
+      localVideo.muted = true;
 
-        console.log("local participant id : " + sessionId);
-        this.generateOffer(localParticipant.offerToReceiveVideo.bind(localParticipant));
-    });
-
-    // get access to video from all the participants
-    console.log(message.data);
-    for (var i in message.data) {
-        receiveVideoFrom(message.data[i]);
+      console.log("local participant id : " + sessionId);
+      this.generateOffer(
+        localParticipant.offerToReceiveVideo.bind(localParticipant)
+      ); //SDP 생성
     }
+  );
 }
 
 /**
  * Add new participant locally and request video from new participant
+ * 새로운 참가자를 클라이언트에게 등록, 새로운 참가자에게 비디오 요청
  * @param sender
  */
 function receiveVideoFrom(sender) {
-    console.log(sessionId + " receive video from " + sender);
-    var participant = new Participant(sender);
-    participants[sender] = participant;
+  console.log(sessionId + " receive video from " + sender);
+  const participant = registerParticipant(sender);
 
-    var video = createVideoForParticipant(participant);
+  var video = createVideoForParticipant(participant); //비디오가 들어갈 공간을 부여합니다.
 
-    // bind function so that calling 'this' in that function will receive the current instance
-    var options = {
-        remoteVideo: video,
-        onicecandidate: participant.onIceCandidate.bind(participant)
-    };
+  // bind function so that calling 'this' in that function will receive the current instance
+  var options = {
+    remoteVideo: video, //새로운 참여자의 화면인 remote 비디오 stream이 들어갈 공간
+    onicecandidate: participant.onIceCandidate.bind(participant), // 새로운 참가자의 icecandidate
+  };
+  //WebRtcPeerRecvonly : WebRtcPeer as receive only.
+  participant.rtcPeer = new kurentoUtils.WebRtcPeer.WebRtcPeerRecvonly(
+    options,
+    function (error) {
+      if (error) {
+        return console.error(error);
+      }
+      this.generateOffer(participant.offerToReceiveVideo.bind(participant)); //SDP 생성
+    }
+  );
+}
 
-    participant.rtcPeer = new kurentoUtils.WebRtcPeer.WebRtcPeerRecvonly(options, function (error) {
-        if (error) {
-            return console.error(error);
-        }
-        this.generateOffer(participant.offerToReceiveVideo.bind(participant));
-    });
+// 클라이언트에게 참여자를 등록하는 함수
+function registerParticipant(sender) {
+  const participant = new Participant(sender);
+  participants[sender] = participant;
+  return participant;
 }
 
 /**
@@ -284,7 +335,8 @@ function receiveVideoFrom(sender) {
  * @param message
  */
 function onNewParticipant(message) {
-    receiveVideoFrom(message.new_user_id)
+  // 새로운 참가자가 왔는데 그냥 스트림 보낼 공간만 만들고 빠진다고? 굳이?
+  receiveVideoFrom(message.new_user_id);
 }
 
 /**
@@ -292,17 +344,17 @@ function onNewParticipant(message) {
  * @param message
  */
 function onParticipantLeft(message) {
-    var participant = participants[message.sessionId];
-    participant.dispose();
-    delete participants[message.sessionId];
+  var participant = participants[message.sessionId];
+  participant.dispose();
+  delete participants[message.sessionId];
 
-    console.log("video-" + participant.id);
-    // remove video tag
-    //document.getElementById("video-" + participant.id).remove();
-    var video = document.getElementById("video-" + participant.id);
+  console.log("video-" + participant.id);
+  // remove video tag
+  //document.getElementById("video-" + participant.id).remove();
+  var video = document.getElementById("video-" + participant.id);
 
-    // Internet Explorer doesn't know element.remove(), does know this
-    video.parentNode.removeChild(video);
+  // Internet Explorer doesn't know element.remove(), does know this
+  video.parentNode.removeChild(video);
 }
 
 /**
@@ -310,90 +362,65 @@ function onParticipantLeft(message) {
  * @param message
  */
 function onReceiveVideoAnswer(message) {
-    var participant = participants[message.sessionId];
-    participant.rtcPeer.processAnswer(message.sdpAnswer, function (error) {
-        if (error) {
-            console.error(error);
-        } else {
-            participant.isAnswer = true;
-            while (participant.iceCandidateQueue.length) {
-                console.error("collected : " + participant.id + " ice candidate");
-                var candidate = participant.iceCandidateQueue.shift();
-                participant.rtcPeer.addIceCandidate(candidate);
-            }
-        }
-    });
+  var participant = participants[message.sessionId];
+  participant.rtcPeer.processAnswer(message.sdpAnswer, function (error) {
+    if (error) {
+      console.error(error);
+    } else {
+      participant.isAnswer = true;
+      while (participant.iceCandidateQueue.length) {
+        console.error("collected : " + participant.id + " ice candidate");
+        var candidate = participant.iceCandidateQueue.shift();
+        participant.rtcPeer.addIceCandidate(candidate);
+      }
+    }
+  });
 }
 
 /**
- * Start recording video
- */
-function startRecording() {
-    var data = {
-        id: "startRecording"
-    };
-    sendMessage(data);
-}
-
-/**
- * Stop recording video
- */
-function stopRecording() {
-    var data = {
-        id: "stopRecording"
-    };
-    sendMessage(data);
-}
-
-/**
- * Create video DOM element
  * @param participant
  * @returns {Element}
+ * 유저의 영상 스트림을 내보낼 공간을 만든다
  */
 function createVideoForParticipant(participant) {
+  var videoId = "video-" + participant.id;
+  var video = document.createElement("video");
 
-    var videoId = "video-" + participant.id;
-    var video = document.createElement('video');
+  video.autoplay = true;
+  video.id = videoId;
+  video.poster = "img/webrtc.png";
+  document.getElementById("video_list").appendChild(video);
 
-    video.autoplay = true;
-    video.id = videoId;
-    video.poster = "img/webrtc.png";
-    document.getElementById("video_list").appendChild(video);
-
-    // return video element
-    return document.getElementById(videoId);
+  // return video element
+  return document.getElementById(videoId);
 }
 
 function disableElements(functionName) {
-    if (functionName === "register") {
-        document.getElementById('userName').disabled = true;
-        document.getElementById('register').disabled = true;
-        document.getElementById('joinRoom').disabled = false;
-        document.getElementById('roomName').disabled = false;
-        document.getElementById('sendInvite').disabled = false;
-        document.getElementById('otherUserName').disabled = false;
-    }
-    if (functionName === "joinRoom") {
-        document.getElementById('roomName').disabled = true;
-        document.getElementById('joinRoom').disabled = true;
-        document.getElementById('sendInvite').disabled = false;
-        document.getElementById('otherUserName').disabled = false;
-        document.getElementById('leaveRoom').disabled = false;
-        document.getElementById('startRecording').disabled = false;
-        document.getElementById('stopRecording').disabled = false;
-    }
-    if (functionName === "leaveRoom") {
-        document.getElementById('leaveRoom').disabled = true;
-        document.getElementById('roomName').disabled = false;
-        document.getElementById('joinRoom').disabled = false;
-        document.getElementById('sendInvite').disabled = false;
-        document.getElementById('otherUserName').disabled = false;
-        document.getElementById('startRecording').disabled = true;
-        document.getElementById('stopRecording').disabled = true;
-    }
-    if (functionName === "call") {
-        document.getElementById('roomName').disabled = true;
-        document.getElementById('joinRoom').disabled = true;
-        document.getElementById('leaveRoom').disabled = false;
-    }
+  if (functionName === "register") {
+    document.getElementById("userName").disabled = true;
+    document.getElementById("register").disabled = true;
+    document.getElementById("joinRoom").disabled = false;
+    document.getElementById("roomName").disabled = false;
+
+    document.getElementById("otherUserName").disabled = false;
+  }
+  if (functionName === "joinRoom") {
+    document.getElementById("roomName").disabled = true;
+    document.getElementById("joinRoom").disabled = true;
+
+    document.getElementById("otherUserName").disabled = false;
+    document.getElementById("leaveRoom").disabled = false;
+  }
+  if (functionName === "leaveRoom") {
+    document.getElementById("leaveRoom").disabled = true;
+    document.getElementById("roomName").disabled = false;
+    document.getElementById("joinRoom").disabled = false;
+
+    document.getElementById("otherUserName").disabled = false;
+  }
+  if (functionName === "call") {
+    document.getElementById("roomName").disabled = true;
+    document.getElementById("joinRoom").disabled = true;
+    document.getElementById("leaveRoom").disabled = false;
+  }
 }

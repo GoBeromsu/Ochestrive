@@ -1,54 +1,40 @@
-/*
- * (C) Copyright 2014 Kurento (http://kurento.org/)
- *
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the GNU Lesser General Public License
- * (LGPL) version 2.1 which accompanies this distribution, and is available at
- * http://www.gnu.org/licenses/lgpl-2.1.html
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- */
-
-
-var UserRegistry = require('./user-registry.js');
-var UserSession = require('./user-session.js');
+var UserRegistry = require("./user-registry.js");
+var UserSession = require("./user-session.js");
+var os = require("os"); //cpu정보
+var si = require("systeminformation"); //시스템 정보
 
 // store global variables
 var userRegistry = new UserRegistry();
 var rooms = {};
 
-var express = require('express');
+var express = require("express");
 
 // kurento required
-var path = require('path');
-var url = require('url');
-var http = require('http');
+var path = require("path");
+var url = require("url");
+var http = require("http");
 
-var kurento = require('kurento-client');
+var kurento = require("kurento-client");
 
 // Constants
 var settings = {
-    WEBSOCKETURL: "http://localhost:8080/",
-    KURENTOURL: "ws://localhost:8888/kurento"
+  WEBSOCKETURL: "http://localhost:8080/",
+  KURENTOURL: "ws://localhost:8888/kurento",
 };
 
 /*
  * Server startup
-*/
+ */
 var app = express();
 var asUrl = url.parse(settings.WEBSOCKETURL);
 var port = asUrl.port;
 
 var server = app.listen(port, function () {
-    console.log('Kurento Tutorial started');
-    console.log('Open ' + url.format(asUrl) + ' with a WebRTC capable browser');
+  console.log("Kurento Tutorial started");
+  console.log("Open " + url.format(asUrl) + " with a WebRTC capable browser");
 });
 
-var io = require('socket.io')(server);
+var io = require("socket.io")(server);
 // Default https code, uncomment this and comment out the above server code to use it
 /*
 var fs = require('fs');
@@ -68,78 +54,94 @@ var io = require('socket.io')(httpsServer)'
 /**
  * Message handlers
  */
-io.on('connection', function (socket) {
-    var userList = '';
-    for (var userId in userRegistry.usersById) {
-        userList += ' ' + userId + ',';
+io.on("connection", function (socket) {
+  var userList = "";
+  for (var userId in userRegistry.usersById) {
+    userList += " " + userId + ",";
+  }
+  console.log(
+    "receive new client : " + socket.id + " currently have : " + userList
+  );
+  socket.emit("id", socket.id);
+  //cpu, 메모리 정보
+  console.log("시스템 cpu 정보 : \n");
+  console.dir(os.cpus());
+  console.log("cpu 코어 개수 %d", os.cpus().length);
+  console.log("시스템의 메모리 정보 : %d / %d", os.freemem(), os.totalmem());
+  console.log("시스템의 hostname : %s", os.hostname());
+  console.log("시스템의 네트워크 인터페이스 정보\n");
+  console.dir(os.networkInterfaces());
+  console.log(os.loadavg()); //load 평균
+  var avg_load = os.loadavg();
+  console.log("Load average (1 minute):" + String(avg_load[0]));
+  console.log("Load average (5 minute):" + String(avg_load[1]));
+  console.log("Load average (15 minute):" + String(avg_load[2]));
+  //cpu 사용량
+  var osu = require("os-utils");
+  osu.cpuUsage(function (v) {
+    console.log("CPU Usage (%): " + v);
+  });
+
+  osu.cpuFree(function (v) {
+    console.log("CPU Free:" + v);
+  });
+
+  //시스템 정보
+  si.cpu()
+    .then((data) => console.log("cpu 정보: ", data))
+    .catch((error) => console.error(error));
+  si.cpuTemperature()
+    .then((data) => console.log("cpu 온도: ", data))
+    .catch((error) => console.error(error));
+
+  socket.on("error", function (data) {
+    console.log("Connection: " + socket.id + " error : " + data);
+    leaveRoom(socket.id, function () {});
+  });
+
+  socket.on("disconnect", function (data) {
+    console.log("Connection: " + socket.id + " disconnect : " + data);
+    leaveRoom(socket.id, function () {
+      var userSession = userRegistry.getById(socket.id);
+      stop(userSession.id);
+    });
+  });
+
+  socket.on("message", function (message) {
+    console.log("Connection: " + socket.id + " receive message: " + message.id);
+
+    switch (message.id) {
+      case "register":
+        // 클라이언트 측의 Register로부터 온 Code임
+        console.log("Server : Register " + socket.id);
+        register(socket, message.name, function () {});
+        break;
+      case "joinRoom":
+        console.log(
+          "Server : " + socket.id + " joinRoom : " + message.roomName
+        );
+        joinRoom(socket, message.roomName, function () {});
+        break;
+      case "receiveVideoFrom":
+        console.log(socket.id + " receiveVideoFrom : " + message.sender);
+        receiveVideoFrom(
+          socket,
+          message.sender,
+          message.sdpOffer,
+          function () {}
+        );
+        break;
+      case "leaveRoom":
+        console.log(socket.id + " leaveRoom");
+        leaveRoom(socket.id);
+        break;
+      case "onIceCandidate":
+        addIceCandidate(socket, message);
+        break;
+      default:
+        socket.emit({ id: "error", message: "Invalid message " + message });
     }
-    console.log('receive new client : ' + socket.id + ' currently have : ' + userList);
-    socket.emit('id', socket.id);
-
-    socket.on('error', function (data) {
-        console.log('Connection: ' + socket.id + ' error : ' + data);
-        leaveRoom(socket.id, function () {
-
-        });
-    });
-
-    socket.on('disconnect', function (data) {
-        console.log('Connection: ' + socket.id + ' disconnect : ' + data);
-        leaveRoom(socket.id, function () {
-            var userSession = userRegistry.getById(socket.id);
-            stop(userSession.id);
-        });
-    });
-
-    socket.on('message', function (message) {
-        console.log('Connection: ' + socket.id + ' receive message: ' + message.id);
-
-        switch (message.id) {
-            case 'register':
-                /** 
-                 * Client로부터 온 Register에 대한 응답
-                */
-                console.log('Server : Register ' + socket.id);
-                register(socket, message.name, function () {
-
-                });
-
-                break;
-            case 'joinRoom':
-                console.log('Server : ' + socket.id + ' joinRoom : ' + message.roomName);
-                joinRoom(socket, message.roomName, function () {
-
-                });
-                break;
-            case 'receiveVideoFrom':
-                console.log(socket.id + ' receiveVideoFrom : ' + message.sender);
-                receiveVideoFrom(socket, message.sender, message.sdpOffer, function () {
-
-                });
-                break;
-            case 'leaveRoom':
-                console.log(socket.id + ' leaveRoom');
-                leaveRoom(socket.id);
-                break;
-            case 'call':
-                console.log("Calling");
-                call(socket.id, message.to, message.from);
-                break;
-            case "startRecording":
-                console.log("Starting recording");
-                startRecord(socket);
-                break;
-            case "stopRecording":
-                console.log("Stopped recording");
-                stopRecord(socket);
-                break;
-            case 'onIceCandidate':
-                addIceCandidate(socket, message);
-                break;
-            default:
-                socket.emit({ id: 'error', message: 'Invalid message ' + message });
-        }
-    });
+  });
 });
 
 /**
@@ -149,14 +151,14 @@ io.on('connection', function (socket) {
  * @param callback
  */
 function register(socket, name, callback) {
-    var userSession = new UserSession(socket.id, socket);
-    userSession.name = name;
-    userRegistry.register(userSession);
-    userSession.sendMessage({
-        id: 'registered',
-        data: 'Server : Successfully registered ' + socket.id
-    });
-    // console.log(userRegistry);
+  var userSession = new UserSession(socket.id, socket);
+  userSession.name = name;
+  userRegistry.register(userSession);
+  userSession.sendMessage({
+    id: "registered",
+    data: "Server : Successfully registered " + socket.id,
+  });
+  // console.log(userRegistry);
 }
 
 /**
@@ -166,17 +168,15 @@ function register(socket, name, callback) {
  * @param callback
  */
 function joinRoom(socket, roomName, callback) {
-    const room = getRoom(roomName, function (error, room) {
-        if (error) {
-            callback(error)
-        }
-
-    });
-    join(socket, room, function (error, user) {
-        console.log('join success : ' + user.id);
-    });
-    console.log(room)
-
+  const room = getRoom(roomName, function (error, room) {
+    if (error) {
+      callback(error);
+    }
+  });
+  join(socket, room, function (error, user) {
+    console.log("join success : " + user.id);
+  });
+  console.log(room);
 }
 
 /**
@@ -185,44 +185,38 @@ function joinRoom(socket, roomName, callback) {
  * @param callback
  */
 function getRoom(roomName, callback) {
+  let room = rooms[roomName];
 
-    let room = rooms[roomName];
+  if (room == null) {
+    console.log("create new room : " + roomName);
+    const kurentoClient = getKurentoClient(function (error, kurentoClient) {
+      if (error) {
+        return callback(error);
+      } // create pipeliRne for room
+    });
+    const pipeline = kurentoClient.create(
+      "MediaPipeline",
+      function (error, pipeline) {
+        if (error) {
+          return callback(error);
+        }
+      }
+    );
 
-    if (room == null) {
-        console.log('create new room : ' + roomName);
-        const kurentoClient = getKurentoClient(function (error, kurentoClient) {
-            if (error) {
-                return callback(error);
-            }          // create pipeliRne for room
-        })
-        const pipeline = kurentoClient.create('MediaPipeline', function (error, pipeline) {
-            if (error) {
-                return callback(error);
-            }
-        })
+    room = {
+      name: roomName,
+      pipeline: pipeline,
+      participants: {},
+      kurentoClient: kurentoClient,
+    };
+    rooms[roomName] = room;
+  } else {
+    console.log("get existing room : " + roomName);
+  }
+  callback(null, room);
 
-        room = {
-            name: roomName,
-            pipeline: pipeline,
-            participants: {},
-            kurentoClient: kurentoClient
-        };
-
-        rooms[roomName] = room;
-        callback(null, room);
-
-    }
-
-    else {
-        console.log('get existing room : ' + roomName);
-        callback(null, room);
-
-    }
-
-    return room
-
+  return room;
 }
-
 
 /**
  * Join (conference) call room
@@ -231,88 +225,87 @@ function getRoom(roomName, callback) {
  * @param callback
  */
 function join(socket, room, callback) {
-    // create user session
-    //  User의 socket id로 유저의 세션을 불러옵니다.
-    console.log('-------------------------------------------------------')
-    console.log(room.name)
-    var userSession = userRegistry.getById(socket.id);
-    userSession.setRoomName(room.name);
+  // create user session
+  //  User의 socket id로 유저의 세션을 불러옵니다.
 
-    var outgoingMedia = room.pipeline.create('WebRtcEndpoint', (error, outgoingMedia) => {
-        if (error) {
-            console.error('no participant in room');
-            // no participants in room yet release pipeline
-            if (Object.keys(room.participants).length == 0) {
-                room.pipeline.release();
-            }
-            return callback(error);
+  var userSession = userRegistry.getById(socket.id);
+  userSession.setRoomName(room.name);
+
+  var outgoingMedia = room.pipeline.create(
+    "WebRtcEndpoint",
+    (error, outgoingMedia) => {
+      if (error) {
+        console.error("no participant in room");
+        // no participants in room yet release pipeline
+        if (Object.keys(room.participants).length == 0) {
+          room.pipeline.release();
         }
-    })
-
-    // outgoingMedia.setMaxVideoRecvBandwidth(200);
-    // outgoingMedia.setMinVideoRecvBandwidth(200);
-    userSession.outgoingMedia = outgoingMedia;
-    // add ice candidate the get sent before endpoint is established
-    var iceCandidateQueue = userSession.iceCandidateQueue[socket.id];
-    if (iceCandidateQueue) {
-        while (iceCandidateQueue.length) {
-            var message = iceCandidateQueue.shift();
-            console.error('user : ' + userSession.id + ' collect candidate for outgoing media');
-            userSession.outgoingMedia.addIceCandidate(message.candidate);
-        }
+        return callback(error);
+      }
     }
+  );
 
-    userSession.outgoingMedia.on('OnIceCandidate', function (event) {
-        console.log("generate outgoing candidate : " + userSession.id);
-        var candidate = kurento.register.complexTypes.IceCandidate(event.candidate);
-        userSession.sendMessage({
-            id: 'iceCandidate',
-            sessionId: userSession.id,
-            candidate: candidate
-        });
-    });
+  // outgoingMedia.setMaxVideoRecvBandwidth(200);
+  // outgoingMedia.setMinVideoRecvBandwidth(200);
+  userSession.outgoingMedia = outgoingMedia;
+  // 엔드 포인트 만들어지기 전에 생긴 candidate를 처리한다
+  getIcecandidateBeforeEstablished(userSession, socket);
 
-    // notify other user that new user is joining
-    var usersInRoom = room.participants;
-    var data = {
-        id: 'newParticipantArrived',
-        new_user_id: userSession.id
-    };
+  // candidate : IP 주소와 포트 넘버의 조합으로 표시된 주소
 
-    // notify existing user
-    for (var i in usersInRoom) {
-        usersInRoom[i].sendMessage(data);
-    }
-
-    var existingUserIds = [];
-    for (var i in room.participants) {
-        existingUserIds.push(usersInRoom[i].id);
-    }
-    // send list of current user in the room to current participant
+  userSession.outgoingMedia.on("OnIceCandidate", function (event) {
+    console.log("generate outgoing candidate : " + userSession.id);
+    var candidate = kurento.register.complexTypes.IceCandidate(event.candidate);
     userSession.sendMessage({
-        id: 'existingParticipants',
-        data: existingUserIds,
-        roomName: room.name
+      id: "iceCandidate",
+      sessionId: userSession.id,
+      candidate: candidate,
     });
+  });
 
-    // register user to room
-    room.participants[userSession.id] = userSession;
+  // notify other user that new user is joining
+  //
+  const usersInRoom = room.participants; // 방 안의 유저들을 불러온다
+  const data = {
+    id: "newParticipantArrived",
+    new_user_id: userSession.id,
+  };
 
-    //MP4 has working sound in VLC, not in windows media player,
-    //default mediaProfile is .webm which does have sound but lacks IE support
-    var recorderParams = {
-        mediaProfile: 'MP4',
-        uri: "file:///tmp/file" + userSession.id + ".mp4"
-    };
+  // notify existing user
+  for (var i in usersInRoom) {
+    usersInRoom[i].sendMessage(data);
+  }
 
-    room.pipeline.create('RecorderEndpoint', recorderParams, function (error, recorderEndpoint) {
-        userSession.outgoingMedia.recorderEndpoint = recorderEndpoint;
-        outgoingMedia.connect(recorderEndpoint);
-    });
+  var existingUserIds = [];
+  for (var i in room.participants) {
+    existingUserIds.push(usersInRoom[i].id);
+  }
+  // send list of current user in the room to current participant
+  userSession.sendMessage({
+    id: "existingParticipants",
+    data: existingUserIds,
+    roomName: room.name,
+  });
 
-
+  // register user to room
+  room.participants[userSession.id] = userSession;
 }
 
+function getIcecandidateBeforeEstablished(userSession, socket) {
+  // add ice candidate the get sent before endpoint is established
+  // candidate가 어떻게 생성되는지 알면 해결할 수 있을 듯
+  var iceCandidateQueue = userSession.iceCandidateQueue[socket.id];
+  if (iceCandidateQueue) {
+    while (iceCandidateQueue.length) {
+      var message = iceCandidateQueue.shift();
+      console.error(
+        "user : " + userSession.id + " collect candidate for outgoing media"
+      );
+      console.log("icecandidate per message : " + message);
+      userSession.outgoingMedia.addIceCandidate(message.candidate);
+    }
+  }
+}
 
 /**
  * Leave (conference) call room
@@ -320,48 +313,53 @@ function join(socket, room, callback) {
  * @param callback
  */
 function leaveRoom(sessionId, callback) {
-    var userSession = userRegistry.getById(sessionId);
+  var userSession = userRegistry.getById(sessionId);
 
-    if (!userSession) {
-        return;
-    }
+  if (!userSession) {
+    return;
+  }
 
-    var room = rooms[userSession.roomName];
+  var room = rooms[userSession.roomName];
 
-    if (!room) {
-        return;
-    }
+  if (!room) {
+    return;
+  }
 
-    console.log('notify all user that ' + userSession.id + ' is leaving the room ' + room.name);
-    var usersInRoom = room.participants;
-    delete usersInRoom[userSession.id];
-    userSession.outgoingMedia.release();
-    // release incoming media for the leaving user
-    for (var i in userSession.incomingMedia) {
-        userSession.incomingMedia[i].release();
-        delete userSession.incomingMedia[i];
-    }
+  console.log(
+    "notify all user that " +
+      userSession.id +
+      " is leaving the room " +
+      room.name
+  );
+  var usersInRoom = room.participants;
+  delete usersInRoom[userSession.id];
+  userSession.outgoingMedia.release();
+  // release incoming media for the leaving user
+  for (var i in userSession.incomingMedia) {
+    userSession.incomingMedia[i].release();
+    delete userSession.incomingMedia[i];
+  }
 
-    var data = {
-        id: 'participantLeft',
-        sessionId: userSession.id
-    };
-    for (var i in usersInRoom) {
-        var user = usersInRoom[i];
-        // release viewer from this
-        user.incomingMedia[userSession.id].release();
-        delete user.incomingMedia[userSession.id];
+  var data = {
+    id: "participantLeft",
+    sessionId: userSession.id,
+  };
+  for (var i in usersInRoom) {
+    var user = usersInRoom[i];
+    // release viewer from this
+    user.incomingMedia[userSession.id].release();
+    delete user.incomingMedia[userSession.id];
 
-        // notify all user in the room
-        user.sendMessage(data);
-    }
+    // notify all user in the room
+    user.sendMessage(data);
+  }
 
-    // Release pipeline and delete room when room is empty
-    if (Object.keys(room.participants).length == 0) {
-        room.pipeline.release();
-        delete rooms[userSession.roomName];
-    }
-    delete userSession.roomName;
+  // Release pipeline and delete room when room is empty
+  if (Object.keys(room.participants).length == 0) {
+    room.pipeline.release();
+    delete rooms[userSession.roomName];
+  }
+  delete userSession.roomName;
 }
 
 /**
@@ -369,50 +367,7 @@ function leaveRoom(sessionId, callback) {
  * @param sessionId
  */
 function stop(sessionId) {
-    userRegistry.unregister(sessionId);
-}
-
-/**
- * Invite other user to a (conference) call
- * @param callerId
- * @param to
- * @param from
- */
-function call(callerId, to, from) {
-    if (to === from) {
-        return;
-    }
-    var roomName;
-    var caller = userRegistry.getById(callerId);
-    var rejectCause = 'User ' + to + ' is not registered';
-    if (userRegistry.getByName(to)) {
-        var callee = userRegistry.getByName(to);
-        if (!caller.roomName) {
-            roomName = generateUUID();
-            joinRoom(caller.socket, roomName);
-        }
-        else {
-            roomName = caller.roomName;
-        }
-        callee.peer = from;
-        caller.peer = to;
-        var message = {
-            id: 'incomingCall',
-            from: from,
-            roomName: roomName
-        };
-        try {
-            return callee.sendMessage(message);
-        } catch (exception) {
-            rejectCause = "Error " + exception;
-        }
-    }
-    var message = {
-        id: 'callResponse',
-        response: 'rejected: ',
-        message: rejectCause
-    };
-    caller.sendMessage(message);
+  userRegistry.unregister(sessionId);
 }
 
 /**
@@ -423,34 +378,34 @@ function call(callerId, to, from) {
  * @param callback
  */
 function receiveVideoFrom(socket, senderId, sdpOffer, callback) {
-    var userSession = userRegistry.getById(socket.id);
-    var sender = userRegistry.getById(senderId);
+  var userSession = userRegistry.getById(socket.id);
+  var sender = userRegistry.getById(senderId);
 
-    getEndpointForUser(userSession, sender, function (error, endpoint) {
+  getEndpointForUser(userSession, sender, function (error, endpoint) {
+    if (error) {
+      callback(error);
+    }
+
+    endpoint.processOffer(sdpOffer, function (error, sdpAnswer) {
+      console.log("process offer from : " + senderId + " to " + userSession.id);
+      if (error) {
+        return callback(error);
+      }
+      var data = {
+        id: "receiveVideoAnswer",
+        sessionId: sender.id,
+        sdpAnswer: sdpAnswer,
+      };
+      userSession.sendMessage(data);
+
+      endpoint.gatherCandidates(function (error) {
         if (error) {
-            callback(error);
+          return callback(error);
         }
-
-        endpoint.processOffer(sdpOffer, function (error, sdpAnswer) {
-            console.log("process offer from : " + senderId + " to " + userSession.id);
-            if (error) {
-                return callback(error);
-            }
-            var data = {
-                id: 'receiveVideoAnswer',
-                sessionId: sender.id,
-                sdpAnswer: sdpAnswer
-            };
-            userSession.sendMessage(data);
-
-            endpoint.gatherCandidates(function (error) {
-                if (error) {
-                    return callback(error);
-                }
-            });
-            return callback(null, sdpAnswer);
-        });
+      });
+      return callback(null, sdpAnswer);
     });
+  });
 }
 
 /**
@@ -460,68 +415,92 @@ function receiveVideoFrom(socket, senderId, sdpOffer, callback) {
  * @param callback
  */
 function getEndpointForUser(userSession, sender, callback) {
-    // request for self media
-    if (userSession.id === sender.id) {
-        callback(null, userSession.outgoingMedia);
-        return;
-    }
+  // request for self media
+  if (userSession.id === sender.id) {
+    callback(null, userSession.outgoingMedia);
+    return;
+  }
 
-    var incoming = userSession.incomingMedia[sender.id];
-    if (incoming == null) {
-        console.log('user : ' + userSession.id + ' create endpoint to receive video from : ' + sender.id);
-        getRoom(userSession.roomName, function (error, room) {
-            if (error) {
-                return callback(error);
-            }
-            room.pipeline.create('WebRtcEndpoint', function (error, incomingMedia) {
-                if (error) {
-                    // no participants in room yet release pipeline
-                    if (Object.keys(room.participants).length == 0) {
-                        room.pipeline.release();
-                    }
-                    return callback(error);
-                }
-                console.log('user : ' + userSession.id + ' successfully created pipeline');
-                incomingMedia.setMaxVideoSendBandwidth(100);
-                incomingMedia.setMinVideoSendBandwidth(20);
-                userSession.incomingMedia[sender.id] = incomingMedia;
+  var incoming = userSession.incomingMedia[sender.id];
+  if (incoming == null) {
+    console.log(
+      "user : " +
+        userSession.id +
+        " create endpoint to receive video from : " +
+        sender.id
+    );
+    getRoom(userSession.roomName, function (error, room) {
+      if (error) {
+        return callback(error);
+      }
+      room.pipeline.create("WebRtcEndpoint", function (error, incomingMedia) {
+        if (error) {
+          // no participants in room yet release pipeline
+          if (Object.keys(room.participants).length == 0) {
+            room.pipeline.release();
+          }
+          return callback(error);
+        }
+        console.log(
+          "user : " + userSession.id + " successfully created pipeline"
+        );
+        incomingMedia.setMaxVideoSendBandwidth(100);
+        incomingMedia.setMinVideoSendBandwidth(20);
+        userSession.incomingMedia[sender.id] = incomingMedia;
 
-                // add ice candidate the get sent before endpoint is established
-                var iceCandidateQueue = userSession.iceCandidateQueue[sender.id];
-                if (iceCandidateQueue) {
-                    while (iceCandidateQueue.length) {
-                        var message = iceCandidateQueue.shift();
-                        console.log('user : ' + userSession.id + ' collect candidate for : ' + message.data.sender);
-                        incomingMedia.addIceCandidate(message.candidate);
-                    }
-                }
+        // add ice candidate the get sent before endpoint is established
+        var iceCandidateQueue = userSession.iceCandidateQueue[sender.id];
+        if (iceCandidateQueue) {
+          while (iceCandidateQueue.length) {
+            var message = iceCandidateQueue.shift();
+            console.log(
+              "user : " +
+                userSession.id +
+                " collect candidate for : " +
+                message.data.sender
+            );
+            incomingMedia.addIceCandidate(message.candidate);
+          }
+        }
 
-                incomingMedia.on('OnIceCandidate', function (event) {
-                    console.log("generate incoming media candidate : " + userSession.id + " from " + sender.id);
-                    var candidate = kurento.register.complexTypes.IceCandidate(event.candidate);
-                    userSession.sendMessage({
-                        id: 'iceCandidate',
-                        sessionId: sender.id,
-                        candidate: candidate
-                    });
-                });
-                sender.outgoingMedia.connect(incomingMedia, function (error) {
-                    if (error) {
-                        callback(error);
-                    }
-                    callback(null, incomingMedia);
-                });
-            });
+        incomingMedia.on("OnIceCandidate", function (event) {
+          console.log(
+            "generate incoming media candidate : " +
+              userSession.id +
+              " from " +
+              sender.id
+          );
+          var candidate = kurento.register.complexTypes.IceCandidate(
+            event.candidate
+          );
+          userSession.sendMessage({
+            id: "iceCandidate",
+            sessionId: sender.id,
+            candidate: candidate,
+          });
         });
-    } else {
-        console.log('user : ' + userSession.id + ' get existing endpoint to receive video from : ' + sender.id);
-        sender.outgoingMedia.connect(incoming, function (error) {
-            if (error) {
-                callback(error);
-            }
-            callback(null, incoming);
+        sender.outgoingMedia.connect(incomingMedia, function (error) {
+          if (error) {
+            callback(error);
+          }
+          callback(null, incomingMedia);
         });
-    }
+      });
+    });
+  } else {
+    console.log(
+      "user : " +
+        userSession.id +
+        " get existing endpoint to receive video from : " +
+        sender.id
+    );
+    sender.outgoingMedia.connect(incoming, function (error) {
+      if (error) {
+        callback(error);
+      }
+      callback(null, incoming);
+    });
+  }
 }
 
 /**
@@ -530,14 +509,16 @@ function getEndpointForUser(userSession, sender, callback) {
  * @param message
  */
 function addIceCandidate(socket, message) {
-    var user = userRegistry.getById(socket.id);
-    if (user != null) {
-        // assign type to IceCandidate
-        var candidate = kurento.register.complexTypes.IceCandidate(message.candidate);
-        user.addIceCandidate(message, candidate);
-    } else {
-        console.error('ice candidate with no user receive : ' + socket.id);
-    }
+  var user = userRegistry.getById(socket.id);
+  if (user != null) {
+    // assign type to IceCandidate
+    var candidate = kurento.register.complexTypes.IceCandidate(
+      message.candidate
+    );
+    user.addIceCandidate(message, candidate);
+  } else {
+    console.error("ice candidate with no user receive : " + socket.id);
+  }
 }
 
 /**
@@ -546,80 +527,15 @@ function addIceCandidate(socket, message) {
  * @returns {*}
  */
 function getKurentoClient(callback) {
-    return kurento(settings.KURENTOURL, function (error, kurentoClient) {
-        if (error) {
-            var message = 'Coult not find media server at address ' + settings.KURENTOURL;
-            return callback(message + ". Exiting with error " + error);
-        }
-
-        callback(null, kurentoClient);
-    });
-}
-
-/**
- * Start recording room
- */
-function startRecord(socket) {
-    var userSession = userRegistry.getById(socket.id);
-
-    if (!userSession) {
-        return;
+  return kurento(settings.KURENTOURL, function (error, kurentoClient) {
+    if (error) {
+      var message =
+        "Coult not find media server at address " + settings.KURENTOURL;
+      return callback(message + ". Exiting with error " + error);
     }
 
-    var room = rooms[userSession.roomName];
-
-    if (!room) {
-        return;
-    }
-
-    var usersInRoom = room.participants;
-
-    var data = {
-        id: 'startRecording'
-    };
-
-    for (var i in usersInRoom) {
-        var user = usersInRoom[i];
-        // release viewer from this
-        user.outgoingMedia.recorderEndpoint.record()
-
-        // notify all user in the room
-        user.sendMessage(data);
-        console.log(user.id);
-    }
-}
-
-/**
- * Stop recording room
- */
-function stopRecord(socket) {
-    var userSession = userRegistry.getById(socket.id);
-
-    if (!userSession) {
-        return;
-    }
-
-    var room = rooms[userSession.roomName];
-
-    if (!room) {
-        return;
-    }
-
-    var usersInRoom = room.participants;
-
-    var data = {
-        id: 'stopRecording'
-    };
-
-    for (var i in usersInRoom) {
-        var user = usersInRoom[i];
-        // release viewer from this
-        user.outgoingMedia.recorderEndpoint.stop()
-
-        // notify all user in the room
-        user.sendMessage(data);
-        console.log(user.id);
-    }
+    callback(null, kurentoClient);
+  });
 }
 
 /**
@@ -627,12 +543,15 @@ function stopRecord(socket) {
  * @returns {string}
  */
 function generateUUID() {
-    var d = new Date().getTime();
-    var uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-        var r = (d + Math.random() * 16) % 16 | 0;
-        d = Math.floor(d / 16);
-        return (c == 'x' ? r : (r & 0x3 | 0x8)).toString(16);
-    });
-    return uuid;
+  var d = new Date().getTime();
+  var uuid = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
+    /[xy]/g,
+    function (c) {
+      var r = (d + Math.random() * 16) % 16 | 0;
+      d = Math.floor(d / 16);
+      return (c == "x" ? r : (r & 0x3) | 0x8).toString(16);
+    }
+  );
+  return uuid;
 }
-app.use(express.static(path.join(__dirname, 'static')));
+app.use(express.static(path.join(__dirname, "static")));
