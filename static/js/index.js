@@ -1,6 +1,5 @@
 const localVideo = document.getElementById("local_video");
 const camerasSelect = document.getElementById("cameras");
-
 const audioSelect = document.getElementById("audios");
 const muteBtn = document.getElementById("mute");
 const cameraBtn = document.getElementById("camera");
@@ -160,9 +159,22 @@ async function handleCameraChange() {
     }
 }
 
+async function handleAudioChange() {
+    await getMedia(camerasSelect.value);
+    if (localParticipant.src) {
+        const audioTrack = myStream.getaudioTracks()[0];
+        const audioSender = localParticipant.src
+            .getSenders()
+            .find((sender) => sender.track.kind === "audio");
+        audioSender.replaceTrack(audioTrack);
+    }
+}
+
+
 muteBtn.addEventListener("click", handleMuteClick);
 cameraBtn.addEventListener("click", handleCameraClick);
-camerasSelect.addEventListener("input", handleCameraChange);
+camerasSelect.addEventListener("input", handleCameraChange)
+audioSelect.addEventListener("input", handleAudioChange);
 
 
 window.onbeforeunload = function () {
