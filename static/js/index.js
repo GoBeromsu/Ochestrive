@@ -183,7 +183,7 @@ socket.on("id", function (id) {
 
     console.log("receive id : " + id);
     sessionId = id;
-
+    getMedia()
 });
 
 // message handler
