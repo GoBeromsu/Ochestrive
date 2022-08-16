@@ -1,14 +1,51 @@
 const localVideo = document.getElementById("local_video");
 const camerasSelect = document.getElementById("cameras");
-
 const audioSelect = document.getElementById("audios");
+const muteBtn = document.getElementById("mute");
+const cameraBtn = document.getElementById("camera");
 
-let myStream;
+
+
+let myStream
+let muted = false;
+let cameraOff = false;
+
 let socket = io.connect();
 let localVideoCurrentId;
 let sessionId;
 let participants = {};
 
+
+const StandardConstraints = {
+    audio: true,
+    video: {
+        frameRate: {
+            min: 1, ideal: 15, max: 30
+        },
+        width: {
+            min: 32, ideal: 50, max: 320
+        },
+        height: {
+            min: 32, ideal: 50, max: 320
+        }
+    }
+}
+
+const mandatoryConstraints = {
+    audio: true,
+    video: {
+        mandatory: {
+            minWidth: 32,
+            maxWidth: 320,
+            minHeight: 32,
+            maxHeight: 320,
+            maxFrameRate: 30,
+            minFrameRate: 1
+        }
+    }
+}
+
+// 카메라를 가져옵니다.
 async function getCameras() {
   try {
     const devices = await navigator.mediaDevices.enumerateDevices();
@@ -30,6 +67,8 @@ async function getCameras() {
     console.log(e);
   }
 }
+
+// 오디오를 가져옵니다.
 async function getAudios() {
   try {
     const devices = await navigator.mediaDevices.enumerateDevices();
@@ -75,13 +114,76 @@ async function getMedia(deviceId) {
   }
 }
 
+
+function handleMuteClick() {
+    myStream
+        .getAudioTracks()
+        .forEach((track) => (track.enabled = !track.enabled));
+    if (!muted) {
+        muteBtn.innerText = "Unmute";
+        muted = true;
+        participants[sessionId].rtcPeer.audioEnabled=false
+    } else {
+        muteBtn.innerText = "Mute";
+        muted = false;
+        participants[sessionId].rtcPeer.audioEnabled=true
+
+    }
+}
+function handleCameraClick() {
+    myStream
+        .getVideoTracks()
+        .forEach((track) => (track.enabled = !track.enabled));
+    if (cameraOff) {
+        cameraBtn.innerText = "Turn Camera Off";
+        cameraOff = false;
+    } else {
+        cameraBtn.innerText = "Turn Camera On";
+        cameraOff = true;
+    }
+}
+
+
+// 공부 필요함
+async function handleCameraChange() {
+    await getMedia(camerasSelect.value);
+    if (localParticipant.src) {
+        const videoTrack = myStream.getVideoTracks()[0];
+        const videoSender = localParticipant.src
+            .getSenders()
+            .find((sender) => sender.track.kind === "video");
+        videoSender.replaceTrack(videoTrack);
+    }
+}
+
+async function handleAudioChange() {
+    await getMedia(camerasSelect.value);
+    if (localParticipant.src) {
+        const audioTrack = myStream.getaudioTracks()[0];
+        const audioSender = localParticipant.src
+            .getSenders()
+            .find((sender) => sender.track.kind === "audio");
+        audioSender.replaceTrack(audioTrack);
+    }
+}
+
+
+muteBtn.addEventListener("click", handleMuteClick);
+cameraBtn.addEventListener("click", handleCameraClick);
+camerasSelect.addEventListener("input", handleCameraChange)
+audioSelect.addEventListener("input", handleAudioChange);
+
+
+
 window.onbeforeunload = function () {
   socket.disconnect();
 };
 
 socket.on("id", function (id) {
-  console.log("receive id : " + id);
-  sessionId = id;
+
+    console.log("receive id : " + id);
+    sessionId = id;
+
 });
 
 // message handler
@@ -154,13 +256,14 @@ function sendMessage(data) {
  */
 
 async function register() {
-  console.log("Client : Register user name");
-  var data = {
-    id: "register",
-    name: document.getElementById("userName").value,
-  };
-  sendMessage(data);
-  await getMedia();
+
+    console.log('Client : Register user name')
+    var data = {
+        id: "register",
+        name: document.getElementById('userName').value
+    };
+    sendMessage(data);
+
 }
 
 /**
@@ -201,6 +304,7 @@ function leaveRoom() {
   }
 }
 
+
 const StandardConstraints = {
   audio: true,
   video: {
@@ -236,20 +340,22 @@ const mandatoryConstraints = {
   },
 };
 
+
 /**
  * Request video from all existing participants
  * 현재 유저의 로컬 비디오 영상 제작 및 기존 방에 들어와 있던 유저들 출력
  * @param message
  */
 function onExistingParticipants(message) {
-  // set constraints
-  const constraints = StandardConstraints;
+
+    // set constraints
+
 
   console.log(sessionId + " register in room " + message.roomName);
 
-  // create video for current user to send to server
-  const localParticipant = new Participant(sessionId);
-  setLocalParticipantVideo(constraints, localParticipant);
+
+    setLocalParticipantVideo()
+
 
   // get access to video from all the participants
   // 기존에 방에 들어와 있던 유저들을 추가합니다.
@@ -259,40 +365,41 @@ function onExistingParticipants(message) {
   }
 }
 // 유저의 로컬 비디오 영상 스트림 생성 및 배포
-function setLocalParticipantVideo(constraints, localParticipant) {
-  participants[sessionId] = localParticipant;
 
-  const video = localVideo;
+function setLocalParticipantVideo() {
+    localParticipant = new Participant(sessionId);
+    participants[sessionId] = localParticipant;
 
-  // bind function so that calling 'this' in that function will receive the current instance
-  const options = {
-    localVideo: video,
-    mediaConstraints: constraints,
-    onicecandidate: localParticipant.onIceCandidate.bind(localParticipant),
-  };
+    const video = localVideo;
 
-  //RTC Peer를 통해서 Data에 접근할 수 있겠고만
-  localParticipant.rtcPeer = new kurentoUtils.WebRtcPeer.WebRtcPeerSendonly(
-    options,
-    function (error) {
-      if (error) {
-        return console.error(error);
-      }
+    // bind function so that calling 'this' in that function will receive the current instance
+    const options = {
 
-      // Set localVideo to new object if on IE/Safari
+        localVideo: video,
+        mediaConstraints: mandatoryConstraints,
+        onicecandidate: localParticipant.onIceCandidate.bind(localParticipant)
+    };
 
-      // initial main video to local first
-      // Stream 제어 기능
-      localVideoCurrentId = sessionId;
-      localVideo.src = localParticipant.rtcPeer.localVideo.src;
-      localVideo.muted = true;
+    //RTC Peer를 통해서 Data에 접근할 수 있겠고만
+    localParticipant.rtcPeer = new kurentoUtils.WebRtcPeer.WebRtcPeerSendonly(options, function (error) {
+        if (error) {
+            return console.error(error);
+        }
 
-      console.log("local participant id : " + sessionId);
-      this.generateOffer(
-        localParticipant.offerToReceiveVideo.bind(localParticipant)
-      ); //SDP 생성
-    }
-  );
+        // Set localVideo to new object if on IE/Safari
+
+
+        // initial main video to local first
+        // Stream 제어 기능
+        localVideoCurrentId = sessionId;
+        localVideo.src = localParticipant.rtcPeer.localVideo.src;
+        localVideo.muted = false;
+
+        console.log("local participant id : " + sessionId);
+        this.generateOffer(localParticipant.offerToReceiveVideo.bind(localParticipant));//SDP 생성
+    });
+
+    // localParticipant.rtcPeer.peerConnection.getLocalStreams()[0].getAudioTracks()[0].enabled = true;
 }
 
 /**
@@ -396,31 +503,35 @@ function createVideoForParticipant(participant) {
 }
 
 function disableElements(functionName) {
-  if (functionName === "register") {
-    document.getElementById("userName").disabled = true;
-    document.getElementById("register").disabled = true;
-    document.getElementById("joinRoom").disabled = false;
-    document.getElementById("roomName").disabled = false;
 
-    document.getElementById("otherUserName").disabled = false;
-  }
-  if (functionName === "joinRoom") {
-    document.getElementById("roomName").disabled = true;
-    document.getElementById("joinRoom").disabled = true;
+    if (functionName === "register") {
+        document.getElementById('userName').disabled = true;
+        document.getElementById('register').disabled = true;
+        document.getElementById('joinRoom').disabled = false;
+        document.getElementById('roomName').disabled = false;
 
-    document.getElementById("otherUserName").disabled = false;
-    document.getElementById("leaveRoom").disabled = false;
-  }
-  if (functionName === "leaveRoom") {
-    document.getElementById("leaveRoom").disabled = true;
-    document.getElementById("roomName").disabled = false;
-    document.getElementById("joinRoom").disabled = false;
+        document.getElementById('otherUserName').disabled = false;
+    }
+    if (functionName === "joinRoom") {
+        document.getElementById('roomName').disabled = true;
+        document.getElementById('joinRoom').disabled = true;
 
-    document.getElementById("otherUserName").disabled = false;
-  }
-  if (functionName === "call") {
-    document.getElementById("roomName").disabled = true;
-    document.getElementById("joinRoom").disabled = true;
-    document.getElementById("leaveRoom").disabled = false;
-  }
+        document.getElementById('otherUserName').disabled = false;
+        document.getElementById('leaveRoom').disabled = false;
+
+    }
+    if (functionName === "leaveRoom") {
+        document.getElementById('leaveRoom').disabled = true;
+        document.getElementById('roomName').disabled = false;
+        document.getElementById('joinRoom').disabled = false;
+
+        document.getElementById('otherUserName').disabled = false;
+
+    }
+    if (functionName === "call") {
+        document.getElementById('roomName').disabled = true;
+        document.getElementById('joinRoom').disabled = true;
+        document.getElementById('leaveRoom').disabled = false;
+    }
+
 }
