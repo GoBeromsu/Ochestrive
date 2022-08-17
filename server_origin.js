@@ -1,5 +1,6 @@
 var UserRegistry = require("./user-registry.js");
 var UserSession = require("./user-session.js");
+
 // store global variables
 var userRegistry = new UserRegistry();
 var rooms = {};
@@ -82,8 +83,6 @@ io.on("connection", function (socket) {
         // 클라이언트 측의 Register로부터 온 Code임
         console.log("Server : Register " + socket.id);
         register(socket, message.name, function () {});
-        checkDeskInfo(message.corenum); //desktop 정보 확인
-
         break;
       case "joinRoom":
         console.log(
@@ -129,14 +128,7 @@ function register(socket, name, callback) {
   });
   // console.log(userRegistry);
 }
-/*desktop 정보 확인 */
-function checkDeskInfo(corenum, callback) {
-  //i3 코어
-  console.log("checkDeskInfo : ", corenum);
-  if (corenum < 6) {
-    //화질을 낮춘다?
-  }
-}
+
 /**
  * Gets and joins room
  * @param socket
