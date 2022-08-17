@@ -131,10 +131,26 @@ function register(socket, name, callback) {
 }
 /*desktop 정보 확인 */
 function checkDeskInfo(corenum, callback) {
-  //i3 코어
   console.log("checkDeskInfo : ", corenum);
+  var MEDIA_CONSTRAINTS = {
+    audio: true,
+    video: {
+      width: 640,
+      framerate: 15,
+    },
+  };
+  //i3코어이면 화질을 낮춘다?
   if (corenum < 6) {
-    //화질을 낮춘다?
+    //kurento-utils에 getMedia 부분 참고하면 좋을것같다.
+    //     constraints = MEDIA_CONSTRAINTS;
+    //     navigator.getUserMedia(constraints, function (stream) {
+    //       videoStream = stream;
+    //       start();
+    //   }, callback);
+    //   navigator.mediaDevices.getUserMedia(constraints).then(function (stream) {
+    //     videoStream = stream;
+    //     start();
+    // }).catch(callback);
   }
 }
 /**
