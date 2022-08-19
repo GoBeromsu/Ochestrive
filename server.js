@@ -19,7 +19,8 @@ var kurento = require('kurento-client');
 // Constants
 var settings = {
     WEBSOCKETURL: "http://localhost:8080/",
-    KURENTOURL: "ws://localhost:8888/kurento"
+    KURENTOURL: "ws://10.246.246.81:10000/kurento",
+        // KURENTOURL: "ws://localhost:8888/kurento",
 };
 
 /*

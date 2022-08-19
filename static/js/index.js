@@ -1,14 +1,49 @@
 const localVideo = document.getElementById("local_video");
 const camerasSelect = document.getElementById("cameras");
-
 const audioSelect = document.getElementById("audios");
+const muteBtn = document.getElementById("mute");
+const cameraBtn = document.getElementById("camera");
+
 
 let myStream
+let muted = false;
+let cameraOff = false;
 let socket = io.connect();
 let localVideoCurrentId;
 let sessionId;
 let participants = {};
 
+
+const StandardConstraints = {
+    audio: true,
+    video: {
+        frameRate: {
+            min: 1, ideal: 15, max: 30
+        },
+        width: {
+            min: 32, ideal: 50, max: 320
+        },
+        height: {
+            min: 32, ideal: 50, max: 320
+        }
+    }
+}
+
+const mandatoryConstraints = {
+    audio: true,
+    video: {
+        mandatory: {
+            minWidth: 32,
+            maxWidth: 320,
+            minHeight: 32,
+            maxHeight: 320,
+            maxFrameRate: 30,
+            minFrameRate: 1
+        }
+    }
+}
+
+// 카메라를 가져옵니다.
 async function getCameras() {
     try {
         const devices = await navigator.mediaDevices.enumerateDevices();
@@ -32,12 +67,14 @@ async function getCameras() {
         console.log(e)
     }
 }
+
+// 오디오를 가져옵니다.
 async function getAudios() {
     try {
         const devices = await navigator.mediaDevices.enumerateDevices();
-        // console.log(devices)
+        console.log(devices)
         const audios = devices.filter((device) => device.kind === "audioinput");
-        console.log(audios)
+        // console.log(audios)
 
         audios.forEach((audio) => {
             const option = document.createElement("option");
@@ -81,8 +118,64 @@ async function getMedia(deviceId) {
 
 }
 
+function handleMuteClick() {
+    myStream
+        .getAudioTracks()
+        .forEach((track) => (track.enabled = !track.enabled));
+    if (!muted) {
+        muteBtn.innerText = "Unmute";
+        muted = true;
+        participants[sessionId].rtcPeer.audioEnabled=false
+    } else {
+        muteBtn.innerText = "Mute";
+        muted = false;
+        participants[sessionId].rtcPeer.audioEnabled=true
+
+    }
+}
+function handleCameraClick() {
+    myStream
+        .getVideoTracks()
+        .forEach((track) => (track.enabled = !track.enabled));
+    if (cameraOff) {
+        cameraBtn.innerText = "Turn Camera Off";
+        cameraOff = false;
+    } else {
+        cameraBtn.innerText = "Turn Camera On";
+        cameraOff = true;
+    }
+}
 
 
+// 공부 필요함
+async function handleCameraChange() {
+    await getMedia(camerasSelect.value);
+    if (localParticipant.src) {
+        const videoTrack = myStream.getVideoTracks()[0];
+        const videoSender = localParticipant.src
+            .getSenders()
+            .find((sender) => sender.track.kind === "video");
+        videoSender.replaceTrack(videoTrack);
+    }
+}
+
+async function handleAudioChange() {
+    await getMedia(camerasSelect.value);
+    if (localParticipant.src) {
+        const audioTrack = myStream.getaudioTracks()[0];
+        const audioSender = localParticipant.src
+            .getSenders()
+            .find((sender) => sender.track.kind === "audio");
+            
+        audioSender.replaceTrack(audioTrack);
+    }
+}
+
+
+muteBtn.addEventListener("click", handleMuteClick);
+cameraBtn.addEventListener("click", handleCameraClick);
+camerasSelect.addEventListener("input", handleCameraChange)
+audioSelect.addEventListener("input", handleAudioChange);
 
 
 window.onbeforeunload = function () {
@@ -92,7 +185,7 @@ window.onbeforeunload = function () {
 socket.on("id", function (id) {
     console.log("receive id : " + id);
     sessionId = id;
-
+    getMedia();
 
 });
 
@@ -165,7 +258,7 @@ async function register() {
         name: document.getElementById('userName').value
     };
     sendMessage(data);
-    await getMedia();
+
 }
 
 /**
@@ -209,34 +302,6 @@ function leaveRoom() {
 }
 
 
-const StandardConstraints = {
-    audio: true,
-    video: {
-        frameRate: {
-            min: 1, ideal: 15, max: 30
-        },
-        width: {
-            min: 32, ideal: 50, max: 320
-        },
-        height: {
-            min: 32, ideal: 50, max: 320
-        }
-    }
-}
-
-const mandatoryConstraints = {
-    audio: true,
-    video: {
-        mandatory: {
-            minWidth: 32,
-            maxWidth: 320,
-            minHeight: 32,
-            maxHeight: 320,
-            maxFrameRate: 30,
-            minFrameRate: 1
-        }
-    }
-}
 
 /**
  * Request video from all existing participants
@@ -245,13 +310,12 @@ const mandatoryConstraints = {
  */
 function onExistingParticipants(message) {
     // set constraints
-    const constraints = mandatoryConstraints
 
     console.log(sessionId + " register in room " + message.roomName);
 
     // create video for current user to send to server
-    const localParticipant = new Participant(sessionId);
-    setLocalParticipantVideo(constraints, localParticipant)
+
+    setLocalParticipantVideo()
 
     // get access to video from all the participants
     // 기존에 방에 들어와 있던 유저들을 추가합니다.
@@ -261,15 +325,17 @@ function onExistingParticipants(message) {
     }
 }
 // 유저의 로컬 비디오 영상 스트림 생성 및 배포
-function setLocalParticipantVideo(constraints, localParticipant) {
+function setLocalParticipantVideo() {
+    localParticipant = new Participant(sessionId);
     participants[sessionId] = localParticipant;
 
     const video = localVideo;
 
     // bind function so that calling 'this' in that function will receive the current instance
     const options = {
+
         localVideo: video,
-        mediaConstraints: constraints,
+        mediaConstraints: mandatoryConstraints,
         onicecandidate: localParticipant.onIceCandidate.bind(localParticipant)
     };
 
@@ -286,12 +352,16 @@ function setLocalParticipantVideo(constraints, localParticipant) {
         // Stream 제어 기능
         localVideoCurrentId = sessionId;
         localVideo.src = localParticipant.rtcPeer.localVideo.src;
-        localVideo.muted = true;
+        localVideo.muted = false;
 
         console.log("local participant id : " + sessionId);
         this.generateOffer(localParticipant.offerToReceiveVideo.bind(localParticipant));//SDP 생성
     });
+
+    // localParticipant.rtcPeer.peerConnection.getLocalStreams()[0].getAudioTracks()[0].enabled = true;
 }
+
+
 
 
 /**
