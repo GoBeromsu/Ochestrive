@@ -1,0 +1,29 @@
+{
+	"name": "kurento-groupcall",
+	"version": "6.1.1-dev",
+	"private": true,
+	"scripts": {
+		"postinstall": "cd static && bower install",
+		"dev": "nodemon"
+	},
+	"dependencies": {
+		"@socket.io/admin-ui": "^0.4.0",
+		"bootstrap": "^5.2.0",
+		"express": "^4.18.1",
+		"kurento-client": "git+https://github.com/Kurento/kurento-client-js.git",
+		"kurento-utils": "^6.16.0",
+		"os-utils": "^0.0.14",
+		"socket.io": "^4.5.1",
+		"systeminformation": "^5.12.5",
+		"url": "^0.11.0",
+		"ws": "^8.8.0"
+	},
+	"devDependencies": {
+		"@babel/cli": "^7.18.6",
+		"@babel/core": "^7.18.6",
+		"@babel/node": "^7.18.6",
+		"@babel/preset-env": "^7.18.6",
+		"bower": "^1.4.1",
+		"nodemon": "^2.0.18"
+	}
+}
