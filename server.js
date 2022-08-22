@@ -15,9 +15,9 @@ var kurento = require("kurento-client");
 
 // Constants
 var settings = {
-    WEBSOCKETURL: "http://localhost:8080/",
-    KURENTOURL: "ws://10.246.246.81:10000/kurento",
-        // KURENTOURL: "ws://localhost:8888/kurento",
+  WEBSOCKETURL: "http://localhost:8080/",
+  KURENTOURL: "ws://10.246.246.81:10000/kurento",
+  // KURENTOURL: "ws://localhost:8888/kurento",
 };
 
 /*
@@ -190,6 +190,9 @@ function getRoom(roomName, callback) {
     const pipeline = kurentoClient.create(
       "MediaPipeline",
       function (error, pipeline) {
+        mediaPipeline.setLatencyStats(true, function (error) {
+          return callback(error);
+        });
         if (error) {
           return callback(error);
         }
@@ -227,6 +230,10 @@ function join(socket, room, callback) {
   var outgoingMedia = room.pipeline.create(
     "WebRtcEndpoint",
     (error, outgoingMedia) => {
+      var mediaType = "VIDEO";
+      webRtcEndpoint.getStats(mediaType, function (error, statsMap) {
+        return callback(error);
+      });
       if (error) {
         console.error("no participant in room");
         // no participants in room yet release pipeline
