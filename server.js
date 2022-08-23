@@ -64,7 +64,7 @@ io.on("connection", function (socket) {
 
   socket.on("error", function (data) {
     console.log("Connection: " + socket.id + " error : " + data);
-    leaveRoom(socket.id, function () {});
+    leaveRoom(socket.id, function () { });
   });
 
   socket.on("disconnect", function (data) {
@@ -82,7 +82,7 @@ io.on("connection", function (socket) {
       case "register":
         // 클라이언트 측의 Register로부터 온 Code임
         console.log("Server : Register " + socket.id);
-        register(socket, message.name, function () {});
+        register(socket, message.name, function () { });
         checkDeskInfo(message.corenum); //desktop 정보 확인
 
         break;
@@ -90,7 +90,7 @@ io.on("connection", function (socket) {
         console.log(
           "Server : " + socket.id + " joinRoom : " + message.roomName
         );
-        joinRoom(socket, message.roomName, function () {});
+        joinRoom(socket, message.roomName, function () { });
         break;
       case "receiveVideoFrom":
         console.log(socket.id + " receiveVideoFrom : " + message.sender);
@@ -98,7 +98,7 @@ io.on("connection", function (socket) {
           socket,
           message.sender,
           message.sdpOffer,
-          function () {}
+          function () { }
         );
         break;
       case "leaveRoom":
@@ -188,14 +188,8 @@ function getRoom(roomName, callback) {
       } // create pipeliRne for room
     });
     const pipeline = kurentoClient.create(
-      "MediaPipeline",
-      function (error, pipeline) {
-        mediaPipeline.setLatencyStats(true, function (error) {
-          return callback(error);
-        });
-        if (error) {
-          return callback(error);
-        }
+      "MediaPipeline", (error, mediaPipeline) => {
+        mediaPipeline.setLatencyStats(true, (error) => { console.log("Latency 측정 오류 발생") })
       }
     );
 
@@ -231,9 +225,15 @@ function join(socket, room, callback) {
     "WebRtcEndpoint",
     (error, outgoingMedia) => {
       var mediaType = "VIDEO";
-      webRtcEndpoint.getStats(mediaType, function (error, statsMap) {
-        return callback(error);
-      });
+      // webRtcEndpoint.getStats(mediaType, function (error, statsMap) {
+      //   return callback(error);
+      // });
+      outgoingMedia.getStats(mediaType, function (error, statsMap) {
+        console.log("get stats start")
+        console.log(statsMap)
+      })
+
+
       if (error) {
         console.error("no participant in room");
         // no participants in room yet release pipeline
@@ -327,9 +327,9 @@ function leaveRoom(sessionId, callback) {
 
   console.log(
     "notify all user that " +
-      userSession.id +
-      " is leaving the room " +
-      room.name
+    userSession.id +
+    " is leaving the room " +
+    room.name
   );
   var usersInRoom = room.participants;
   delete usersInRoom[userSession.id];
@@ -425,9 +425,9 @@ function getEndpointForUser(userSession, sender, callback) {
   if (incoming == null) {
     console.log(
       "user : " +
-        userSession.id +
-        " create endpoint to receive video from : " +
-        sender.id
+      userSession.id +
+      " create endpoint to receive video from : " +
+      sender.id
     );
     getRoom(userSession.roomName, function (error, room) {
       if (error) {
@@ -455,9 +455,9 @@ function getEndpointForUser(userSession, sender, callback) {
             var message = iceCandidateQueue.shift();
             console.log(
               "user : " +
-                userSession.id +
-                " collect candidate for : " +
-                message.data.sender
+              userSession.id +
+              " collect candidate for : " +
+              message.data.sender
             );
             incomingMedia.addIceCandidate(message.candidate);
           }
@@ -466,9 +466,9 @@ function getEndpointForUser(userSession, sender, callback) {
         incomingMedia.on("OnIceCandidate", function (event) {
           console.log(
             "generate incoming media candidate : " +
-              userSession.id +
-              " from " +
-              sender.id
+            userSession.id +
+            " from " +
+            sender.id
           );
           var candidate = kurento.register.complexTypes.IceCandidate(
             event.candidate
@@ -490,9 +490,9 @@ function getEndpointForUser(userSession, sender, callback) {
   } else {
     console.log(
       "user : " +
-        userSession.id +
-        " get existing endpoint to receive video from : " +
-        sender.id
+      userSession.id +
+      " get existing endpoint to receive video from : " +
+      sender.id
     );
     sender.outgoingMedia.connect(incoming, function (error) {
       if (error) {
