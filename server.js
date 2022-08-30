@@ -16,7 +16,7 @@ var kurento = require("kurento-client");
 // Constants
 var settings = {
   WEBSOCKETURL: "http://localhost:8080/",
-  KURENTOURL: "ws://10.246.246.81:10000/kurento",
+  KURENTOURL: "ws://10.246.246.81:10001/kurento",
   // KURENTOURL: "ws://localhost:8888/kurento",
 };
 
@@ -33,6 +33,41 @@ var server = app.listen(port, function () {
 });
 
 var io = require("socket.io")(server);
+const { response } = require("express");
+
+//mysql db 연결
+const mysql = require('mysql');
+const con = mysql.createConnection({
+  host:'localhost',
+  user:'root',
+  password:'1234',
+  database: 'orchestrive'
+});
+/**
+con.connect(function(err){
+  if(err) throw err;
+  console.log('db connected');
+}) */
+
+con.connect(function(err){
+  if(err) throw err;
+  console.log("db connected ");
+});
+
+app.get('/db', (request, response)=>{
+  const sql = "select * from user"; //db 문장
+  con.query(sql, function(err,result,fields){
+    if(err) throw err;
+    response.send(result);
+  })
+})
+/**
+const sql= "INSERT INTO USER(username, room) VALUES(?,?)"
+con.query(sql, ['Jack', 25], function(err, result, fields){
+  if(err) throw err;
+  console.log(result);
+})
+*/
 // Default https code, uncomment this and comment out the above server code to use it
 /*
 var fs = require('fs');
@@ -52,6 +87,9 @@ var io = require('socket.io')(httpsServer)'
 /**
  * Message handlers
  */
+var username="";
+var room="";
+//var id;
 io.on("connection", function (socket) {
   var userList = "";
   for (var userId in userRegistry.usersById) {
@@ -82,14 +120,35 @@ io.on("connection", function (socket) {
       case "register":
         // 클라이언트 측의 Register로부터 온 Code임
         console.log("Server : Register " + socket.id);
+        //id=socket.id;
+        username=message.name;
         register(socket, message.name, function () { });
         checkDeskInfo(message.corenum); //desktop 정보 확인
-
+        //db에 username 저장
+        if (username){
+          const sql= "INSERT INTO USER(username, room) VALUES(?,?)"
+          con.query(sql, [username, 0], function(err, result, fields){
+          if(err) throw err;
+          console.log(result);
+        })
+        }
         break;
       case "joinRoom":
         console.log(
           "Server : " + socket.id + " joinRoom : " + message.roomName
         );
+        room=message.roomName;
+        //db에 room 저장
+        const updateSql= `set sql_safe_updates=0;`;
+        const updateSql2 = `UPDATE user SET room = ${room} WHERE username = '${username}';`
+        con.query(updateSql, function(err, result, fields){
+        if(err) throw err;
+        console.log(result);       
+        });
+        con.query(updateSql2, function(err, result, fields){
+          if(err) throw err;
+          console.log(result);       
+          });
         joinRoom(socket, message.roomName, function () { });
         break;
       case "receiveVideoFrom":
@@ -225,9 +284,6 @@ function join(socket, room, callback) {
     "WebRtcEndpoint",
     (error, outgoingMedia) => {
       var mediaType = "VIDEO";
-      // webRtcEndpoint.getStats(mediaType, function (error, statsMap) {
-      //   return callback(error);
-      // });
       outgoingMedia.getStats(mediaType, function (error, statsMap) {
         console.log("get stats start")
         console.log(statsMap)
