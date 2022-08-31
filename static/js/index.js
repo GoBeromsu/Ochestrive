@@ -287,8 +287,12 @@ function joinRoom() {
         document.getElementById('roomName').disabled = false;
         document.getElementById('joinRoom').disabled = false;
         alert('방 이름을 입력하시오');
-
+        //document.getElementById('userName').disabled = false;
+        //document.getElementById('register').disabled = false;
         
+        
+        
+
     }
     else{
         var data = {
