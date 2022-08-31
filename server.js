@@ -1,8 +1,5 @@
 var UserRegistry = require("./user-registry.js");
 var UserSession = require("./user-session.js");
-var os = require("os"); //cpu정보
-var si = require("systeminformation"); //시스템 정보
-
 // store global variables
 var userRegistry = new UserRegistry();
 var rooms = {};
@@ -19,7 +16,8 @@ var kurento = require("kurento-client");
 // Constants
 var settings = {
   WEBSOCKETURL: "http://localhost:8080/",
-  KURENTOURL: "ws://localhost:8888/kurento",
+  KURENTOURL: "ws://10.246.246.81:10001/kurento",
+  // KURENTOURL: "ws://localhost:8888/kurento",
 };
 
 /*
@@ -35,6 +33,41 @@ var server = app.listen(port, function () {
 });
 
 var io = require("socket.io")(server);
+const { response } = require("express");
+
+//mysql db 연결
+const mysql = require('mysql');
+const con = mysql.createConnection({
+  host:'localhost',
+  user:'root',
+  password:'1234',
+  database: 'orchestrive'
+});
+/**
+con.connect(function(err){
+  if(err) throw err;
+  console.log('db connected');
+}) */
+
+con.connect(function(err){
+  if(err) throw err;
+  console.log("db connected ");
+});
+
+app.get('/db', (request, response)=>{
+  const sql = "select * from user"; //db 문장
+  con.query(sql, function(err,result,fields){
+    if(err) throw err;
+    response.send(result);
+  })
+})
+/**
+const sql= "INSERT INTO USER(username, room) VALUES(?,?)"
+con.query(sql, ['Jack', 25], function(err, result, fields){
+  if(err) throw err;
+  console.log(result);
+})
+*/
 // Default https code, uncomment this and comment out the above server code to use it
 /*
 var fs = require('fs');
@@ -54,6 +87,9 @@ var io = require('socket.io')(httpsServer)'
 /**
  * Message handlers
  */
+var username="";
+var room="";
+//var id;
 io.on("connection", function (socket) {
   var userList = "";
   for (var userId in userRegistry.usersById) {
@@ -63,40 +99,10 @@ io.on("connection", function (socket) {
     "receive new client : " + socket.id + " currently have : " + userList
   );
   socket.emit("id", socket.id);
-  //cpu, 메모리 정보
-  console.log("시스템 cpu 정보 : \n");
-  console.dir(os.cpus());
-  console.log("cpu 코어 개수 %d", os.cpus().length);
-  console.log("시스템의 메모리 정보 : %d / %d", os.freemem(), os.totalmem());
-  console.log("시스템의 hostname : %s", os.hostname());
-  console.log("시스템의 네트워크 인터페이스 정보\n");
-  console.dir(os.networkInterfaces());
-  console.log(os.loadavg()); //load 평균
-  var avg_load = os.loadavg();
-  console.log("Load average (1 minute):" + String(avg_load[0]));
-  console.log("Load average (5 minute):" + String(avg_load[1]));
-  console.log("Load average (15 minute):" + String(avg_load[2]));
-  //cpu 사용량
-  var osu = require("os-utils");
-  osu.cpuUsage(function (v) {
-    console.log("CPU Usage (%): " + v);
-  });
-
-  osu.cpuFree(function (v) {
-    console.log("CPU Free:" + v);
-  });
-
-  //시스템 정보
-  si.cpu()
-    .then((data) => console.log("cpu 정보: ", data))
-    .catch((error) => console.error(error));
-  si.cpuTemperature()
-    .then((data) => console.log("cpu 온도: ", data))
-    .catch((error) => console.error(error));
 
   socket.on("error", function (data) {
     console.log("Connection: " + socket.id + " error : " + data);
-    leaveRoom(socket.id, function () {});
+    leaveRoom(socket.id, function () { });
   });
 
   socket.on("disconnect", function (data) {
@@ -114,13 +120,37 @@ io.on("connection", function (socket) {
       case "register":
         // 클라이언트 측의 Register로부터 온 Code임
         console.log("Server : Register " + socket.id);
-        register(socket, message.name, function () {});
+        //id=socket.id;
+        username=message.name;
+        register(socket, message.name, function () { });
+        checkDeskInfo(message.corenum); //desktop 정보 확인
+        //db에 username 저장
+        if (username){
+          const sql= "INSERT INTO USER(username, room) VALUES(?,?)"
+          con.query(sql, [username, 0], function(err, result, fields){
+          if(err) throw err;
+          console.log(result);
+        })
+        }
+        document.getElementById('joinRoom').disabled = false;
         break;
       case "joinRoom":
         console.log(
           "Server : " + socket.id + " joinRoom : " + message.roomName
         );
-        joinRoom(socket, message.roomName, function () {});
+        room=message.roomName;
+        //db에 room 저장
+        const updateSql= `set sql_safe_updates=0;`;
+        const updateSql2 = `UPDATE user SET room = ${room} WHERE username = '${username}';`
+        con.query(updateSql, function(err, result, fields){
+        if(err) throw err;
+        console.log(result);       
+        });
+        con.query(updateSql2, function(err, result, fields){
+          if(err) throw err;
+          console.log(result);       
+          });
+        joinRoom(socket, message.roomName, function () { });
         break;
       case "receiveVideoFrom":
         console.log(socket.id + " receiveVideoFrom : " + message.sender);
@@ -128,7 +158,7 @@ io.on("connection", function (socket) {
           socket,
           message.sender,
           message.sdpOffer,
-          function () {}
+          function () { }
         );
         break;
       case "leaveRoom":
@@ -160,7 +190,30 @@ function register(socket, name, callback) {
   });
   // console.log(userRegistry);
 }
-
+/*desktop 정보 확인 */
+function checkDeskInfo(corenum, callback) {
+  console.log("checkDeskInfo : ", corenum);
+  var MEDIA_CONSTRAINTS = {
+    audio: true,
+    video: {
+      width: 640,
+      framerate: 15,
+    },
+  };
+  //i3코어이면 화질을 낮춘다?
+  if (corenum < 6) {
+    //kurento-utils에 getMedia 부분 참고하면 좋을것같다.
+    //     constraints = MEDIA_CONSTRAINTS;
+    //     navigator.getUserMedia(constraints, function (stream) {
+    //       videoStream = stream;
+    //       start();
+    //   }, callback);
+    //   navigator.mediaDevices.getUserMedia(constraints).then(function (stream) {
+    //     videoStream = stream;
+    //     start();
+    // }).catch(callback);
+  }
+}
 /**
  * Gets and joins room
  * @param socket
@@ -195,11 +248,8 @@ function getRoom(roomName, callback) {
       } // create pipeliRne for room
     });
     const pipeline = kurentoClient.create(
-      "MediaPipeline",
-      function (error, pipeline) {
-        if (error) {
-          return callback(error);
-        }
+      "MediaPipeline", (error, mediaPipeline) => {
+        mediaPipeline.setLatencyStats(true, (error) => { console.log("Latency 측정 오류 발생") })
       }
     );
 
@@ -234,6 +284,13 @@ function join(socket, room, callback) {
   var outgoingMedia = room.pipeline.create(
     "WebRtcEndpoint",
     (error, outgoingMedia) => {
+      var mediaType = "VIDEO";
+      outgoingMedia.getStats(mediaType, function (error, statsMap) {
+        console.log("get stats start")
+        console.log(statsMap)
+      })
+
+
       if (error) {
         console.error("no participant in room");
         // no participants in room yet release pipeline
@@ -327,9 +384,9 @@ function leaveRoom(sessionId, callback) {
 
   console.log(
     "notify all user that " +
-      userSession.id +
-      " is leaving the room " +
-      room.name
+    userSession.id +
+    " is leaving the room " +
+    room.name
   );
   var usersInRoom = room.participants;
   delete usersInRoom[userSession.id];
@@ -425,9 +482,9 @@ function getEndpointForUser(userSession, sender, callback) {
   if (incoming == null) {
     console.log(
       "user : " +
-        userSession.id +
-        " create endpoint to receive video from : " +
-        sender.id
+      userSession.id +
+      " create endpoint to receive video from : " +
+      sender.id
     );
     getRoom(userSession.roomName, function (error, room) {
       if (error) {
@@ -455,9 +512,9 @@ function getEndpointForUser(userSession, sender, callback) {
             var message = iceCandidateQueue.shift();
             console.log(
               "user : " +
-                userSession.id +
-                " collect candidate for : " +
-                message.data.sender
+              userSession.id +
+              " collect candidate for : " +
+              message.data.sender
             );
             incomingMedia.addIceCandidate(message.candidate);
           }
@@ -466,9 +523,9 @@ function getEndpointForUser(userSession, sender, callback) {
         incomingMedia.on("OnIceCandidate", function (event) {
           console.log(
             "generate incoming media candidate : " +
-              userSession.id +
-              " from " +
-              sender.id
+            userSession.id +
+            " from " +
+            sender.id
           );
           var candidate = kurento.register.complexTypes.IceCandidate(
             event.candidate
@@ -490,9 +547,9 @@ function getEndpointForUser(userSession, sender, callback) {
   } else {
     console.log(
       "user : " +
-        userSession.id +
-        " get existing endpoint to receive video from : " +
-        sender.id
+      userSession.id +
+      " get existing endpoint to receive video from : " +
+      sender.id
     );
     sender.outgoingMedia.connect(incoming, function (error) {
       if (error) {
