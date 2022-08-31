@@ -12,6 +12,7 @@
 		"express": "^4.18.1",
 		"kurento-client": "git+https://github.com/Kurento/kurento-client-js.git",
 		"kurento-utils": "^6.16.0",
+		"mysql": "^2.18.1",
 		"os-utils": "^0.0.14",
 		"socket.io": "^4.5.1",
 		"systeminformation": "^5.12.5",
