@@ -256,11 +256,22 @@ function sendMessage(data) {
 
 async function register() {
     console.log('Client : Register user name')
-    var data = {
-        id: "register",
-        name: document.getElementById('userName').value
-    };
-    sendMessage(data);
+    var username= document.getElementById('userName').value;
+    if (!username) {
+        // 무조건 방을 생성하는 버그 있음
+        document.getElementById('userName').disabled = false;
+        alert('방 이름을 입력하시오');
+        
+    }
+    else{
+        var data = {
+            id: "register",
+            name: username
+        };
+        sendMessage(data);
+    }
+
+   
 
 }
 
@@ -273,15 +284,20 @@ function joinRoom() {
     roomName = document.getElementById('roomName').value;
     if (!roomName) {
         // 무조건 방을 생성하는 버그 있음
-        alert('방 이름을 입력하시오')
+        document.getElementById('roomName').disabled = false;
+        document.getElementById('joinRoom').disabled = false;
+        alert('방 이름을 입력하시오');
 
+        
     }
-
-    var data = {
-        id: "joinRoom",
-        roomName: roomName
-    };
-    sendMessage(data);
+    else{
+        var data = {
+            id: "joinRoom",
+            roomName: roomName
+        };
+        sendMessage(data);
+    }
+    
 }
 
 /**
