@@ -3,7 +3,7 @@
  */
 
 function UserRegistry() {
-    this.usersById = {};
+    this.usersById = {};//유저의 session이 저장됨
     this.usersByName = {};
 }
 

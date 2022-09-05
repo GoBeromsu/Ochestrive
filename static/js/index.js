@@ -77,16 +77,12 @@ async function getAudios() {
         const devices = await navigator.mediaDevices.enumerateDevices();
         console.log(devices)
         const audios = devices.filter((device) => device.kind === "audioinput");
-        // console.log(audios)
-
         audios.forEach((audio) => {
             const option = document.createElement("option");
             option.value = audio.deviceId;
             option.innerText = audio.label;
-
             audioSelect.appendChild(option);
         })
-
     }
     catch (e) {
         console.log(e)
@@ -261,7 +257,6 @@ async function register() {
         name: document.getElementById('userName').value
     };
     sendMessage(data);
-
 }
 
 /**
@@ -272,11 +267,8 @@ function joinRoom() {
     disableElements('joinRoom');
     roomName = document.getElementById('roomName').value;
     if (!roomName) {
-        // 무조건 방을 생성하는 버그 있음
         alert('방 이름을 입력하시오')
-
     }
-
     var data = {
         id: "joinRoom",
         roomName: roomName
