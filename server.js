@@ -16,20 +16,21 @@ var kurento = require("kurento-client");
 // Constants
 var settings = {
   WEBSOCKETURL: "http://localhost:8080/",
-  KURENTOURL: "ws://10.246.246.81:10001/kurento",
+  KURENTOURL: "ws://172.17.0.1:10001/kurento",
   // KURENTOURL: "ws://localhost:8888/kurento",
 };
 
-/*
+/* 
  * Server startup
  */
 var app = express();
 var asUrl = url.parse(settings.WEBSOCKETURL);
 var port = asUrl.port;
 
-var server = app.listen(port, function () {
+var server = app.listen(port, '0.0.0.0', function () {
   console.log("Kurento Tutorial started");
   console.log("Open " + url.format(asUrl) + " with a WebRTC capable browser");
+  console.log(`Running on http://0.0.0.0:${port}`);
 });
 
 var io = require("socket.io")(server);
@@ -38,26 +39,37 @@ const { response } = require("express");
 //mysql db 연결
 const mysql = require('mysql');
 const con = mysql.createConnection({
-  host:'localhost',
-  user:'root',
-  password:'1234',
-  database: 'orchestrive'
+  //host: '127.0.0.1',
+  //host:'10.246.246.81',
+  host: '172.17.0.1', //docker inspect 하여 얻은 mysql ip
+  //host: '0.0.0.0',
+  //user:'user',
+  user: 'root',
+  password: '1234',
+  database: 'orchestrive',
+  port: 13306,
 });
-/**
+/** 
 con.connect(function(err){
   if(err) throw err;
   console.log('db connected');
 }) */
 
-con.connect(function(err){
-  if(err) throw err;
+con.connect(function (err) {
+  if (err) throw err;
   console.log("db connected ");
+  // var sql = "CREATE TABLE user (username VARCHAR(255) default NULL, room int(11) default NULL)";
+  // con.query(sql, function (err, result) {
+  //   if (err) throw err;
+  //   console.log("user Table created");
+  // });
+  // console.log("make user table");
 });
 
-app.get('/db', (request, response)=>{
+app.get('/db', (request, response) => {
   const sql = "select * from user"; //db 문장
-  con.query(sql, function(err,result,fields){
-    if(err) throw err;
+  con.query(sql, function (err, result, fields) {
+    if (err) throw err;
     response.send(result);
   })
 })
@@ -87,8 +99,8 @@ var io = require('socket.io')(httpsServer)'
 /**
  * Message handlers
  */
-var username="";
-var room="";
+var username = "";
+var room = "";
 //var id;
 io.on("connection", function (socket) {
   var userList = "";
@@ -121,34 +133,34 @@ io.on("connection", function (socket) {
         // 클라이언트 측의 Register로부터 온 Code임
         console.log("Server : Register " + socket.id);
         //id=socket.id;
-        username=message.name;
+        username = message.name;
         register(socket, message.name, function () { });
         checkDeskInfo(message.corenum); //desktop 정보 확인
         //db에 username 저장
-        if (username){
-          const sql= "INSERT INTO USER(username, room) VALUES(?,?)"
-          con.query(sql, [username, 0], function(err, result, fields){
-          if(err) throw err;
-          console.log(result);
-        })
+        if (username) {
+          const sql = "INSERT INTO user(username, room) VALUES(?,?)"
+          con.query(sql, [username, 0], function (err, result, fields) {
+            if (err) throw err;
+            console.log(result);
+          })
         }
         break;
       case "joinRoom":
         console.log(
           "Server : " + socket.id + " joinRoom : " + message.roomName
         );
-        room=message.roomName;
+        room = message.roomName;
         //db에 room 저장
-        const updateSql= `set sql_safe_updates=0;`;
+        const updateSql = `set sql_safe_updates=0;`;
         const updateSql2 = `UPDATE user SET room = ${room} WHERE username = '${username}';`
-        con.query(updateSql, function(err, result, fields){
-        if(err) throw err;
-        console.log(result);       
+        con.query(updateSql, function (err, result, fields) {
+          if (err) throw err;
+          console.log(result);
         });
-        con.query(updateSql2, function(err, result, fields){
-          if(err) throw err;
-          console.log(result);       
-          });
+        con.query(updateSql2, function (err, result, fields) {
+          if (err) throw err;
+          console.log(result);
+        });
         joinRoom(socket, message.roomName, function () { });
         break;
       case "receiveVideoFrom":
@@ -278,12 +290,16 @@ function join(socket, room, callback) {
   //  User의 socket id로 유저의 세션을 불러옵니다.
 
   var userSession = userRegistry.getById(socket.id);
-  userSession.setRoomName(room.name);
+  if (userSession) {
+    userSession.setRoomName(room.name);
+  }
+  //userSession.setRoomName(room.name);
 
   var outgoingMedia = room.pipeline.create(
     "WebRtcEndpoint",
     (error, outgoingMedia) => {
       var mediaType = "VIDEO";
+
       outgoingMedia.getStats(mediaType, function (error, statsMap) {
         console.log("get stats start")
         console.log(statsMap)
@@ -303,21 +319,24 @@ function join(socket, room, callback) {
 
   // outgoingMedia.setMaxVideoRecvBandwidth(200);
   // outgoingMedia.setMinVideoRecvBandwidth(200);
-  userSession.outgoingMedia = outgoingMedia;
-  // 엔드 포인트 만들어지기 전에 생긴 candidate를 처리한다
-  getIcecandidateBeforeEstablished(userSession, socket);
+  if (userSession) {
+    userSession.outgoingMedia = outgoingMedia;
+    // 엔드 포인트 만들어지기 전에 생긴 candidate를 처리한다
+    getIcecandidateBeforeEstablished(userSession, socket);
 
-  // candidate : IP 주소와 포트 넘버의 조합으로 표시된 주소
+    // candidate : IP 주소와 포트 넘버의 조합으로 표시된 주소
 
-  userSession.outgoingMedia.on("OnIceCandidate", function (event) {
-    console.log("generate outgoing candidate : " + userSession.id);
-    var candidate = kurento.register.complexTypes.IceCandidate(event.candidate);
-    userSession.sendMessage({
-      id: "iceCandidate",
-      sessionId: userSession.id,
-      candidate: candidate,
+    userSession.outgoingMedia.on("OnIceCandidate", function (event) {
+      console.log("generate outgoing candidate : " + userSession.id);
+      var candidate = kurento.register.complexTypes.IceCandidate(event.candidate);
+      userSession.sendMessage({
+        id: "iceCandidate",
+        sessionId: userSession.id,
+        candidate: candidate,
+      });
     });
-  });
+  }
+
 
   // notify other user that new user is joining
   //
@@ -389,33 +408,38 @@ function leaveRoom(sessionId, callback) {
   );
   var usersInRoom = room.participants;
   delete usersInRoom[userSession.id];
-  userSession.outgoingMedia.release();
-  // release incoming media for the leaving user
-  for (var i in userSession.incomingMedia) {
-    userSession.incomingMedia[i].release();
-    delete userSession.incomingMedia[i];
+  if (userSession) {
+    userSession.outgoingMedia.release();
+    // release incoming media for the leaving user
+    for (var i in userSession.incomingMedia) {
+      userSession.incomingMedia[i].release();
+      delete userSession.incomingMedia[i];
+    }
+    var data = {
+      id: "participantLeft",
+      sessionId: userSession.id,
+    };
+    for (var i in usersInRoom) {
+      var user = usersInRoom[i];
+      // release viewer from this
+      if (user.incomingMedia[userSession.id]) {
+        user.incomingMedia[userSession.id].release();
+        delete user.incomingMedia[userSession.id];
+      }
+
+
+      // notify all user in the room
+      user.sendMessage(data);
+    }
+
+    // Release pipeline and delete room when room is empty
+    if (Object.keys(room.participants).length == 0) {
+      room.pipeline.release();
+      delete rooms[userSession.roomName];
+    }
+    delete userSession.roomName;
   }
 
-  var data = {
-    id: "participantLeft",
-    sessionId: userSession.id,
-  };
-  for (var i in usersInRoom) {
-    var user = usersInRoom[i];
-    // release viewer from this
-    user.incomingMedia[userSession.id].release();
-    delete user.incomingMedia[userSession.id];
-
-    // notify all user in the room
-    user.sendMessage(data);
-  }
-
-  // Release pipeline and delete room when room is empty
-  if (Object.keys(room.participants).length == 0) {
-    room.pipeline.release();
-    delete rooms[userSession.roomName];
-  }
-  delete userSession.roomName;
 }
 
 /**
@@ -589,6 +613,7 @@ function getKurentoClient(callback) {
         "Coult not find media server at address " + settings.KURENTOURL;
       return callback(message + ". Exiting with error " + error);
     }
+    console.log("get Kurento Client");
 
     callback(null, kurentoClient);
   });
