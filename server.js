@@ -14,7 +14,7 @@ var http = require("http");
 var kurento = require("kurento-client");
 
 // Constants
-var settings = {
+const settings = {
   WEBSOCKETURL: "http://localhost:8080/",
   KURENTOURL: "ws://10.246.246.81:10001/kurento",
   // KURENTOURL: "ws://localhost:8888/kurento",
@@ -23,39 +23,40 @@ var settings = {
 /*
  * Server startup
  */
-var app = express();
-var asUrl = url.parse(settings.WEBSOCKETURL);
-var port = asUrl.port;
+var app = express();// Express Sever
+var asUrl = url.parse(settings.WEBSOCKETURL);//socket Server url
+var port = asUrl.port;//port for socket server
 
+// 지정된 포트로 http 서버를 연다
 var server = app.listen(port, function () {
   console.log("Kurento Tutorial started");
   console.log("Open " + url.format(asUrl) + " with a WebRTC capable browser");
 });
-
 var io = require("socket.io")(server);
-
 /**
  * Message handlers
  */
-io.on("connection", function (socket) {
+io.on("connection", socket => { //Client의 소켓이 연결되면 일어나는 이벤트
   var userList = "";
+  // 유저 레지스트리에 저장된 유저들을 출력합니다
+  // 근데 보통 유저 혼자 들어온다
   for (var userId in userRegistry.usersById) {
     userList += " " + userId + ",";
   }
   console.log(
     "receive new client : " + socket.id + " currently have : " + userList
   );
-  socket.emit("id", socket.id);
+  socket.emit("id", socket.id);// 클라이언트에게 Socket id를 보낸다
 
-  socket.on("error", function (data) {
+  socket.on("error", function (data) {//에러 발생 이벤트 
     console.log("Connection: " + socket.id + " error : " + data);
-    leaveRoom(socket.id, function () { });
+    leaveRoom(socket.id, function () { }); // 유저들을 방에서 탈출 시킨다
   });
 
-  socket.on("disconnect", function (data) {
+  socket.on("disconnect", function (data) {// socket 연결 끊겼을 때
     console.log("Connection: " + socket.id + " disconnect : " + data);
-    leaveRoom(socket.id, function () {
-      var userSession = userRegistry.getById(socket.id);
+    leaveRoom(socket.id, function () {// 방을 떠난다. 이거 자세히 알아보도록
+      var userSession = userRegistry.getById(socket.id);//유저의 id를 얻어서 끊어버림
       stop(userSession.id);
     });
   });
@@ -68,9 +69,6 @@ io.on("connection", function (socket) {
         //클라이언트가 register를 누르면 동작
         console.log("Server : Register " + socket.id);
         register(socket, message.name, function () { });
-
-        //message.coreenum 없음
-        //  checkDeskInfo(message.corenum); //desktop 정보 확인
         break;
       case "joinRoom":
         console.log(
@@ -128,16 +126,16 @@ function checkDeskInfo(corenum, callback) {
   };
   //i3코어이면 화질을 낮춘다?
   if (corenum < 6) {
-    //kurento-utils에 getMedia 부분 참고하면 좋을것같다.
-    //     constraints = MEDIA_CONSTRAINTS;
-    //     navigator.getUserMedia(constraints, function (stream) {
-    //       videoStream = stream;
-    //       start();
-    //   }, callback);
-    //   navigator.mediaDevices.getUserMedia(constraints).then(function (stream) {
-    //     videoStream = stream;
-    //     start();
-    // }).catch(callback);
+    // kurento-utils에 getMedia 부분 참고하면 좋을것같다.
+    constraints = MEDIA_CONSTRAINTS;
+    navigator.getUserMedia(constraints, function (stream) {
+      videoStream = stream;
+      start();
+    }, callback);
+    navigator.mediaDevices.getUserMedia(constraints).then(function (stream) {
+      videoStream = stream;
+      start();
+    }).catch(callback);
   }
 }
 /**
@@ -155,7 +153,7 @@ function joinRoom(socket, roomName, callback) {
   join(socket, room, function (error, user) {
     console.log("join success : " + user.id);
   });
-  console.log(room);
+  // console.log(room);
 }
 
 /**
@@ -424,10 +422,10 @@ function getEndpointForUser(userSession, sender, callback) {
         // console.log(
         //   "user : " + userSession.id + " successfully created pipeline"
         // );
-        
+
         incomingMedia.getStats('AUDIO', (error, statsMap) => {
           if (error) { return callback(error) }
-          else{
+          else {
             console.log(statsMap)
           }
         })
@@ -523,23 +521,6 @@ function getKurentoClient(callback) {
 
     callback(null, kurentoClient);
   });
-}
-
-/**
- * Generate unique ID, used for generating new rooms
- * @returns {string}
- */
-function generateUUID() {
-  var d = new Date().getTime();
-  var uuid = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
-    /[xy]/g,
-    function (c) {
-      var r = (d + Math.random() * 16) % 16 | 0;
-      d = Math.floor(d / 16);
-      return (c == "x" ? r : (r & 0x3) | 0x8).toString(16);
-    }
-  );
-  return uuid;
 }
 
 
