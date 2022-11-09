@@ -4,8 +4,7 @@ const audioSelect = document.getElementById("audios");
 const muteBtn = document.getElementById("mute");
 const cameraBtn = document.getElementById("camera");
 
-
-let myStream
+let myStream;
 
 let muted = false;
 let cameraOff = false;
@@ -14,22 +13,26 @@ let localVideoCurrentId;
 let sessionId;
 let participants = {};
 
-
-
 const StandardConstraints = {
     audio: true,
     video: {
         frameRate: {
-            min: 1, ideal: 15, max: 30
+            min: 1,
+            ideal: 15,
+            max: 30,
         },
         width: {
-            min: 32, ideal: 50, max: 320
+            min: 32,
+            ideal: 50,
+            max: 320,
         },
         height: {
-            min: 32, ideal: 50, max: 320
-        }
-    }
-}
+            min: 32,
+            ideal: 50,
+            max: 320,
+        },
+    },
+};
 
 const mandatoryConstraints = {
     audio: true,
@@ -40,18 +43,20 @@ const mandatoryConstraints = {
             minHeight: 32,
             maxHeight: 320,
             maxFrameRate: 30,
-            minFrameRate: 1
-        }
-    }
-}
+            minFrameRate: 1,
+        },
+    },
+};
 
 // 카메라를 가져옵니다.
 async function getCameras() {
     try {
         const devices = await navigator.mediaDevices.enumerateDevices();
         // console.log(devices)
-        const cameras = devices.filter((device) => device.kind === "videoinput");
-        
+        const cameras = devices.filter(
+            (device) => device.kind === "videoinput"
+        );
+
         // console.log(cameras)
         const currentCamera = myStream.getVideoTracks()[0];
 
@@ -63,11 +68,9 @@ async function getCameras() {
                 option.selected = true;
             }
             camerasSelect.appendChild(option);
-        })
-
-    }
-    catch (e) {
-        console.log(e)
+        });
+    } catch (e) {
+        console.log(e);
     }
 }
 
@@ -75,46 +78,43 @@ async function getCameras() {
 async function getAudios() {
     try {
         const devices = await navigator.mediaDevices.enumerateDevices();
-        console.log(devices)
+        console.log(devices);
         const audios = devices.filter((device) => device.kind === "audioinput");
         audios.forEach((audio) => {
             const option = document.createElement("option");
             option.value = audio.deviceId;
             option.innerText = audio.label;
             audioSelect.appendChild(option);
-        })
-    }
-    catch (e) {
-        console.log(e)
+        });
+    } catch (e) {
+        console.log(e);
     }
 }
-
 
 async function getMedia(deviceId) {
     const initialConstraint = {
         audio: true,
-        video: { deviceId: { exact: deviceId } }
-    }
+        video: { deviceId: { exact: deviceId } },
+    };
     const cameraConstraints = {
         audio: true,
         video: { deviceId: { exact: deviceId } },
     };
 
     try {
-        myStream = await navigator.mediaDevices.getUserMedia(deviceId ? cameraConstraints : initialConstraint);
-        console.log(myStream)
+        myStream = await navigator.mediaDevices.getUserMedia(
+            deviceId ? cameraConstraints : initialConstraint
+        );
+        console.log(myStream);
         localVideo.srcObject = myStream;
-        
+
         if (!deviceId) {
             await getCameras();
             await getAudios();
         }
-
+    } catch (e) {
+        console.log(e);
     }
-    catch (e) {
-        console.log(e)
-    }
-
 }
 
 function handleMuteClick() {
@@ -124,12 +124,11 @@ function handleMuteClick() {
     if (!muted) {
         muteBtn.innerText = "Unmute";
         muted = true;
-        participants[sessionId].rtcPeer.audioEnabled=false
+        participants[sessionId].rtcPeer.audioEnabled = false;
     } else {
         muteBtn.innerText = "Mute";
         muted = false;
-        participants[sessionId].rtcPeer.audioEnabled=true
-
+        participants[sessionId].rtcPeer.audioEnabled = true;
     }
 }
 function handleCameraClick() {
@@ -144,7 +143,6 @@ function handleCameraClick() {
         cameraOff = true;
     }
 }
-
 
 // 공부 필요함
 async function handleCameraChange() {
@@ -165,17 +163,15 @@ async function handleAudioChange() {
         const audioSender = localParticipant.src
             .getSenders()
             .find((sender) => sender.track.kind === "audio");
-            
+
         audioSender.replaceTrack(audioTrack);
     }
 }
 
-
 muteBtn.addEventListener("click", handleMuteClick);
 cameraBtn.addEventListener("click", handleCameraClick);
-camerasSelect.addEventListener("input", handleCameraChange)
+camerasSelect.addEventListener("input", handleCameraChange);
 audioSelect.addEventListener("input", handleAudioChange);
-
 
 window.onbeforeunload = function () {
     socket.disconnect();
@@ -185,7 +181,6 @@ socket.on("id", function (id) {
     console.log("receive id : " + id);
     sessionId = id;
     getMedia();
-    
 });
 
 // message handler
@@ -194,7 +189,7 @@ socket.on("message", function (message) {
         case "registered":
             disableElements("register");
             console.log(message.data);
-            break
+            break;
         case "existingParticipants":
             console.log("existingParticipants : " + message.data);
             onExistingParticipants(message);
@@ -212,23 +207,33 @@ socket.on("message", function (message) {
             onReceiveVideoAnswer(message);
             break;
         case "iceCandidate":
-            //participants에 이미 넣어져 있음 
+            //participants에 이미 넣어져 있음
             // Join Room에서 부를 때는 일종의 예외 처리임, participants가 없다
             let participant = participants[message.sessionId];
-            console.log(participant)
+            console.log(participant);
             if (participant != null) {
                 console.log(message.candidate);
-                participant.rtcPeer.addIceCandidate(message.candidate, function (error) {
-                    if (error) {
-                        if (message.sessionId === sessionId) {
-                            console.error("Error adding candidate to self : " + error);
-                        } else {
-                            console.error("Error adding candidate : " + error);
+                participant.rtcPeer.addIceCandidate(
+                    message.candidate,
+                    function (error) {
+                        if (error) {
+                            if (message.sessionId === sessionId) {
+                                console.error(
+                                    "Error adding candidate to self : " + error
+                                );
+                            } else {
+                                console.error(
+                                    "Error adding candidate : " + error
+                                );
+                            }
                         }
                     }
-                });
+                );
             } else {
-                console.error('still does not establish rtc peer for : ' + message.sessionId);
+                console.error(
+                    "still does not establish rtc peer for : " +
+                        message.sessionId
+                );
             }
             break;
         default:
@@ -246,15 +251,15 @@ function sendMessage(data) {
 
 /**
  * Register to server
- * 유저 이름 정보를 등록하는 함수 
+ * 유저 이름 정보를 등록하는 함수
  * 가장 먼저 실행된다.
  */
 
 async function register() {
-    console.log('Client : Register user name')
+    console.log("Client : Register user name");
     var data = {
         id: "register",
-        name: document.getElementById('userName').value
+        name: document.getElementById("userName").value,
     };
     sendMessage(data);
 }
@@ -264,14 +269,14 @@ async function register() {
  * @param roomName
  */
 function joinRoom() {
-    disableElements('joinRoom');
-    roomName = document.getElementById('roomName').value;
+    disableElements("joinRoom");
+    roomName = document.getElementById("roomName").value;
     if (!roomName) {
-        alert('방 이름을 입력하시오')
+        alert("방 이름을 입력하시오");
     }
     var data = {
         id: "joinRoom",
-        roomName: roomName
+        roomName: roomName,
     };
     sendMessage(data);
 }
@@ -280,10 +285,9 @@ function joinRoom() {
  * Tell room you're leaving and remove all video elements
  */
 function leaveRoom() {
-
     disableElements("leaveRoom");
     var message = {
-        id: "leaveRoom"
+        id: "leaveRoom",
     };
 
     participants[sessionId].rtcPeer.dispose();
@@ -295,8 +299,6 @@ function leaveRoom() {
         myNode.removeChild(myNode.firstChild);
     }
 }
-
-
 
 /**
  * Request video from all existing participants
@@ -310,7 +312,7 @@ function onExistingParticipants(message) {
 
     // create video for current user to send to server
 
-    setLocalParticipantVideo()
+    setLocalParticipantVideo();
 
     // get access to video from all the participants
     // 기존에 방에 들어와 있던 유저들을 추가합니다.
@@ -328,36 +330,36 @@ function setLocalParticipantVideo() {
 
     // bind function so that calling 'this' in that function will receive the current instance
     const options = {
-
         localVideo: video,
         mediaConstraints: mandatoryConstraints,
-        onicecandidate: localParticipant.onIceCandidate.bind(localParticipant)
+        onicecandidate: localParticipant.onIceCandidate.bind(localParticipant),
     };
 
     //RTC Peer를 통해서 Data에 접근할 수 있겠고만
-    localParticipant.rtcPeer = new kurentoUtils.WebRtcPeer.WebRtcPeerSendonly(options, function (error) {
-        if (error) {
-            return console.error(error);
+    localParticipant.rtcPeer = new kurentoUtils.WebRtcPeer.WebRtcPeerSendonly(
+        options,
+        function (error) {
+            if (error) {
+                return console.error(error);
+            }
+
+            // Set localVideo to new object if on IE/Safari
+
+            // initial main video to local first
+            // Stream 제어 기능
+            localVideoCurrentId = sessionId;
+            localVideo.src = localParticipant.rtcPeer.localVideo.src;
+            localVideo.muted = false;
+
+            console.log("local participant id : " + sessionId);
+            this.generateOffer(
+                localParticipant.offerToReceiveVideo.bind(localParticipant)
+            ); //SDP 생성
         }
-
-        // Set localVideo to new object if on IE/Safari
-
-
-        // initial main video to local first
-        // Stream 제어 기능
-        localVideoCurrentId = sessionId;
-        localVideo.src = localParticipant.rtcPeer.localVideo.src;
-        localVideo.muted = false;
-
-        console.log("local participant id : " + sessionId);
-        this.generateOffer(localParticipant.offerToReceiveVideo.bind(localParticipant));//SDP 생성
-    });
+    );
 
     // localParticipant.rtcPeer.peerConnection.getLocalStreams()[0].getAudioTracks()[0].enabled = true;
 }
-
-
-
 
 /**
  * Add new participant locally and request video from new participant
@@ -366,32 +368,35 @@ function setLocalParticipantVideo() {
  */
 function receiveVideoFrom(sender) {
     console.log(sessionId + " receive video from " + sender);
-    const participant = registerParticipant(sender)
+    const participant = registerParticipant(sender);
 
-    var video = createVideoForParticipant(participant);//비디오가 들어갈 공간을 부여합니다.
+    var video = createVideoForParticipant(participant); //비디오가 들어갈 공간을 부여합니다.
 
     // bind function so that calling 'this' in that function will receive the current instance
     var options = {
-        remoteVideo: video,//새로운 참여자의 화면인 remote 비디오 stream이 들어갈 공간
-        onicecandidate: participant.onIceCandidate.bind(participant)// 새로운 참가자의 icecandidate
+        remoteVideo: video, //새로운 참여자의 화면인 remote 비디오 stream이 들어갈 공간
+        onicecandidate: participant.onIceCandidate.bind(participant), // 새로운 참가자의 icecandidate
     };
     //WebRtcPeerRecvonly : WebRtcPeer as receive only.
-    participant.rtcPeer = new kurentoUtils.WebRtcPeer.WebRtcPeerRecvonly(options, function (error) {
-        if (error) {
-            return console.error(error);
+    participant.rtcPeer = new kurentoUtils.WebRtcPeer.WebRtcPeerRecvonly(
+        options,
+        function (error) {
+            if (error) {
+                return console.error(error);
+            }
+            this.generateOffer(
+                participant.offerToReceiveVideo.bind(participant)
+            ); //SDP 생성
         }
-        this.generateOffer(participant.offerToReceiveVideo.bind(participant));//SDP 생성
-    });
+    );
 }
 
 // 클라이언트에게 참여자를 등록하는 함수
 function registerParticipant(sender) {
     const participant = new Participant(sender);
     participants[sender] = participant;
-    return participant
+    return participant;
 }
-
-
 
 /**
  * Receive video from new participant
@@ -399,7 +404,7 @@ function registerParticipant(sender) {
  */
 function onNewParticipant(message) {
     // 새로운 참가자가 왔는데 그냥 스트림 보낼 공간만 만들고 빠진다고? 굳이?
-    receiveVideoFrom(message.new_user_id)
+    receiveVideoFrom(message.new_user_id);
 }
 
 /**
@@ -432,7 +437,9 @@ function onReceiveVideoAnswer(message) {
         } else {
             participant.isAnswer = true;
             while (participant.iceCandidateQueue.length) {
-                console.error("collected : " + participant.id + " ice candidate");
+                console.error(
+                    "collected : " + participant.id + " ice candidate"
+                );
                 var candidate = participant.iceCandidateQueue.shift();
                 participant.rtcPeer.addIceCandidate(candidate);
             }
@@ -440,17 +447,14 @@ function onReceiveVideoAnswer(message) {
     });
 }
 
-
-
 /**
  * @param participant
  * @returns {Element}
  * 유저의 영상 스트림을 내보낼 공간을 만든다
  */
 function createVideoForParticipant(participant) {
-
     var videoId = "video-" + participant.id;
-    var video = document.createElement('video');
+    var video = document.createElement("video");
 
     video.autoplay = true;
     video.id = videoId;
@@ -463,32 +467,30 @@ function createVideoForParticipant(participant) {
 
 function disableElements(functionName) {
     if (functionName === "register") {
-        document.getElementById('userName').disabled = true;
-        document.getElementById('register').disabled = true;
-        document.getElementById('joinRoom').disabled = false;
-        document.getElementById('roomName').disabled = false;
+        document.getElementById("userName").disabled = true;
+        document.getElementById("register").disabled = true;
+        document.getElementById("joinRoom").disabled = false;
+        document.getElementById("roomName").disabled = false;
 
-        document.getElementById('otherUserName').disabled = false;
+        document.getElementById("otherUserName").disabled = false;
     }
     if (functionName === "joinRoom") {
-        document.getElementById('roomName').disabled = true;
-        document.getElementById('joinRoom').disabled = true;
+        document.getElementById("roomName").disabled = true;
+        document.getElementById("joinRoom").disabled = true;
 
-        document.getElementById('otherUserName').disabled = false;
-        document.getElementById('leaveRoom').disabled = false;
-
+        document.getElementById("otherUserName").disabled = false;
+        document.getElementById("leaveRoom").disabled = false;
     }
     if (functionName === "leaveRoom") {
-        document.getElementById('leaveRoom').disabled = true;
-        document.getElementById('roomName').disabled = false;
-        document.getElementById('joinRoom').disabled = false;
+        document.getElementById("leaveRoom").disabled = true;
+        document.getElementById("roomName").disabled = false;
+        document.getElementById("joinRoom").disabled = false;
 
-        document.getElementById('otherUserName').disabled = false;
-
+        document.getElementById("otherUserName").disabled = false;
     }
     if (functionName === "call") {
-        document.getElementById('roomName').disabled = true;
-        document.getElementById('joinRoom').disabled = true;
-        document.getElementById('leaveRoom').disabled = false;
+        document.getElementById("roomName").disabled = true;
+        document.getElementById("joinRoom").disabled = true;
+        document.getElementById("leaveRoom").disabled = false;
     }
 }
