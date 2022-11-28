@@ -35,7 +35,16 @@ const StandardConstraints = {
 };
 
 const mandatoryConstraints = {
-    audio: true,
+    audio: {
+        autoGainControl: false,
+        channelCount: 2,
+        echoCancellation: false,
+        latency: 0,
+        noiseSuppression: false,
+        sampleRate: 24000,
+        sampleSize: 16,
+        volume: 1.0,
+    },
     video: {
         mandatory: {
             minWidth: 32,
@@ -93,11 +102,29 @@ async function getAudios() {
 
 async function getMedia(deviceId) {
     const initialConstraint = {
-        audio: true,
+        audio: {
+            autoGainControl: false,
+            channelCount: 2,
+            echoCancellation: false,
+            latency: 0,
+            noiseSuppression: false,
+            sampleRate: 24000,
+            sampleSize: 16,
+            volume: 1.0,
+        },
         video: { deviceId: { exact: deviceId } },
     };
     const cameraConstraints = {
-        audio: true,
+        audio: {
+            autoGainControl: false,
+            channelCount: 2,
+            echoCancellation: false,
+            latency: 0,
+            noiseSuppression: false,
+            sampleRate: 24000,
+            sampleSize: 16,
+            volume: 1.0,
+        },
         video: { deviceId: { exact: deviceId } },
     };
 
@@ -331,6 +358,16 @@ function setLocalParticipantVideo() {
     // bind function so that calling 'this' in that function will receive the current instance
     const options = {
         localVideo: video,
+        audio: {
+            autoGainControl: false,
+            channelCount: 2,
+            echoCancellation: false,
+            latency: 0,
+            noiseSuppression: false,
+            sampleRate: 24000,
+            sampleSize: 16,
+            volume: 1.0,
+        },
         mediaConstraints: mandatoryConstraints,
         onicecandidate: localParticipant.onIceCandidate.bind(localParticipant),
     };
@@ -357,8 +394,6 @@ function setLocalParticipantVideo() {
             ); //SDP 생성
         }
     );
-
-    // localParticipant.rtcPeer.peerConnection.getLocalStreams()[0].getAudioTracks()[0].enabled = true;
 }
 
 /**
