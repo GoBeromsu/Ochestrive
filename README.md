@@ -17,7 +17,7 @@
 - 5G MEC와 SFU 기반의 미디어 서버를 활용하여 저지연이며 동시에 다수의 사용자가 접속 가능한 화상회의 서비스를 개발합니다.
 
 ## 역할 담당
-**고범수**: PM, 백엔드-webRTC 화상 채팅, 리팩토링 <a href="https://github.com/GoBeromsu">@GoBeromsu</a>    
+**고범수**: PM, 백엔드-webRTC 화상 채팅, 리팩토링,미디어 스트림 동기화 , 시그널링/미디어 서버 구축, 서비스 배포 <a href="https://github.com/GoBeromsu">@GoBeromsu</a>    
 **김명지**: 백엔드-webRTC 화상 채팅, 컨트롤러 구현, 리팩토링, Docker 환경 구축 <a href="https://github.com/Starlight258">@Starlight258</a>     
 **김지민**: 프론트엔드- 웹 만들기, Docker 환경 구축  <a href="https://github.com/kimjimin00">@kimjimin00</a>   
 **류한일**: 백엔드-media device I/O 처리, 동기화 알고리즘 구현 <a href="https://github.com/cooopang">@cooopang</a>        
