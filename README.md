@@ -1,5 +1,6 @@
 # 5G MEC를 활용한 실시간 음악 협업 서비스
-
+## 홍보 영상
+[![image](https://user-images.githubusercontent.com/37897508/224617559-bf8693c0-44e6-485c-95f3-c0d066c370c3.png)](https://youtu.be/YgTgkBeZmn4)
 ## 아이디어 개발 목적 및 의의
 포스트 코로나 시대에는 원격 협업을 위해 줌, 구글 미트 등 온라인 화상회의 서비스가 활발히 활용되고 있습니다. 
 하지만 이러한 서비스는 오디오 지연 시간 문제로 인해 음악 협업에는 사용할 수 없습니다.
@@ -33,4 +34,4 @@
 
 ## Preview
 ![image](https://user-images.githubusercontent.com/78211281/224594008-192069d5-a996-4e74-89a1-36f8d2318bbb.png)
-[![Video Label](http://img.youtube.com/vi/YgTgkBeZmn4/0.jpg)](https://youtu.be/YgTgkBeZmn4)
+
